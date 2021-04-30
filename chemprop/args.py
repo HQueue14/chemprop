@@ -347,6 +347,11 @@ class TrainArgs(CommonArgs):
     """
     Whether to adjust MPNN layer to take reactions as input instead of molecules.
     """
+    reaction_solvent: bool = False
+    """
+    Whether to adjust MPNN layer to have one MPNN that takes reactions as input instead of molecules
+    and have another MPNN that takes solvent molecules as input.
+    """
     reaction_mode: Literal['reac_prod', 'reac_diff', 'prod_diff'] = 'reac_diff'
     """
     Choices for construction of atom and bond features for reactions
@@ -357,6 +362,12 @@ class TrainArgs(CommonArgs):
     explicit_h: bool = False
     """
     Whether H are explicitly specified in input (and should be kept this way).
+    When :code: `reaction_solvent` is True, this only applies to reactions and not to solvent molecules.
+    """
+    explicit_h_solvent: bool = False
+    """
+    Whether H are explicitly specified in input for solvent molecules (and should be kept this way)
+    when :code: `reaction_solvent` is True.
     """
 
     # Training arguments
@@ -489,6 +500,10 @@ class TrainArgs(CommonArgs):
 
         global temp_dir  # Prevents the temporary directory from being deleted upon function return
 
+        # Change the default number_of_molecules value to 2 if self.reaction_solvent is True
+        if self.reaction_solvent is True and not self.number_of_molecules == 2:
+            self.number_of_molecules = 2
+
         # Process SMILES columns
         self.smiles_columns = chemprop.data.utils.preprocess_smiles_columns(
             path=self.data_path,
@@ -601,6 +616,12 @@ class TrainArgs(CommonArgs):
         if not self.bond_feature_scaling and self.bond_features_path is None:
             raise ValueError('Bond descriptor scaling is only possible if additional bond features are provided.')
 
+        # validate reaction solvent options
+        if self.explicit_h_solvent is True and self.reaction_solvent is False:
+            raise ValueError('explicit_h_solvent is only available when reaction_solvent is True')
+
+        if self.reaction is True and self.reaction_solvent is True:
+            raise ValueError('Only reaction or reaction_solvent mode can be used, not both.')
 
 class PredictArgs(CommonArgs):
     """:class:`PredictArgs` includes :class:`CommonArgs` along with additional arguments used for predicting with a Chemprop model."""
