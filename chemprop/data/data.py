@@ -10,7 +10,7 @@ from rdkit import Chem
 from .scaler import StandardScaler
 from chemprop.features import get_features_generator
 from chemprop.features import BatchMolGraph, MolGraph
-from chemprop.features import is_explicit_h, is_reaction
+from chemprop.features import is_solvent, is_explicit_h, is_reaction
 from chemprop.rdkit import make_mol
 
 # Cache of graph featurizations
@@ -93,8 +93,9 @@ class MoleculeDatapoint:
         self.bond_features = bond_features
         self.overwrite_default_atom_features = overwrite_default_atom_features
         self.overwrite_default_bond_features = overwrite_default_bond_features
-        self.is_reaction = is_reaction()
-        self.is_explicit_h = is_explicit_h()
+        self.is_solvent_list = [is_solvent(s) for s in smiles]
+        self.is_reaction_list = [is_reaction(is_s) for is_s in self.is_solvent_list]
+        self.is_explicit_h_list = [is_explicit_h(is_s) for is_s in self.is_solvent_list]
         
 
         # Generate additional features if given a generator
@@ -103,8 +104,8 @@ class MoleculeDatapoint:
 
             for fg in self.features_generator:
                 features_generator = get_features_generator(fg)
-                for m in self.mol:
-                    if not self.is_reaction:
+                for m, reaction in zip(self.mol, self.is_reaction_list):
+                    if not reaction:
                         if m is not None and m.GetNumHeavyAtoms() > 0:
                             self.features.extend(features_generator(m))
                         # for H2
@@ -145,7 +146,7 @@ class MoleculeDatapoint:
     @property
     def mol(self) -> Union[List[Chem.Mol], List[Tuple[Chem.Mol, Chem.Mol]]]:
         """Gets the corresponding list of RDKit molecules for the corresponding SMILES list."""
-        mol = make_mols(self.smiles, self.is_reaction, self.is_explicit_h)
+        mol = make_mols(self.smiles, self.is_reaction_list, self.is_explicit_h_list)
 
         if cache_mol():
             for s, m in zip(self.smiles, mol):
@@ -668,17 +669,19 @@ class MoleculeDataLoader(DataLoader):
         return super(MoleculeDataLoader, self).__iter__()
 
     
-def make_mols(smiles: List[str], reaction: bool, keep_h: bool):
+def make_mols(smiles: List[str], reaction_list: List[bool], keep_h_list: List[bool]):
     """
     Builds a list of RDKit molecules (or a list of tuples of molecules if reaction is True) for a list of smiles.
 
     :param smiles: List of SMILES strings.
-    :param reaction: Boolean whether the SMILES strings are to be treated as a reaction.
-    :param keep_h: Boolean whether to keep hydrogens in the input smiles. This does not add hydrogens, it only keeps them if they are specified.
+    :param reaction_list: List of Booleans whether the SMILES strings are to be treated as a reaction.
+    :param keep_h_list: List of Booleans whether to keep hydrogens in the input smiles. This does not add hydrogens, it only keeps them if they are specified.
     :return: List of RDKit molecules or list of tuple of molecules.
     """
-    if reaction:
-        mol = [SMILES_TO_MOL[s] if s in SMILES_TO_MOL else (make_mol(s.split(">")[0], keep_h), make_mol(s.split(">")[-1], keep_h)) for s in smiles]
-    else:
-        mol = [SMILES_TO_MOL[s] if s in SMILES_TO_MOL else make_mol(s, keep_h) for s in smiles]
+    mol = []
+    for s, rxn, keep_h in zip(smiles, reaction_list, keep_h_list):
+        if rxn:
+            mol += [SMILES_TO_MOL[s] if s in SMILES_TO_MOL else (make_mol(s.split(">")[0], keep_h), make_mol(s.split(">")[-1], keep_h))]
+        else:
+            mol += [SMILES_TO_MOL[s] if s in SMILES_TO_MOL else make_mol(s, keep_h)]
     return mol

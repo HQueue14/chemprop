@@ -35,17 +35,23 @@ BOND_FDIM = 14
 EXTRA_BOND_FDIM = 0
 REACTION_MODE = None
 EXPLICIT_H = False
+EXPLICIT_H_SOLVENT = False
 REACTION = False
+REACTION_SOLVENT = False
 
 
-def get_atom_fdim(overwrite_default_atom: bool = False) -> int:
+def get_atom_fdim(overwrite_default_atom: bool = False, is_reaction: bool = False) -> int:
     """
     Gets the dimensionality of the atom feature vector.
 
     :param overwrite_default_atom: Whether to overwrite the default atom descriptors
+    :param is_reaction: Whether to add :code:`EXTRA_ATOM_FDIM` for reaction input when :code:`REACTION_MODE` is not None
     :return: The dimensionality of the atom feature vector.
     """
-    return (not overwrite_default_atom) * ATOM_FDIM + EXTRA_ATOM_FDIM
+    if REACTION_MODE:
+        return (not overwrite_default_atom) * ATOM_FDIM + is_reaction * EXTRA_ATOM_FDIM
+    else:
+        return (not overwrite_default_atom) * ATOM_FDIM + EXTRA_ATOM_FDIM
 
 
 def set_explicit_h(explicit_h: bool) -> None:
@@ -56,6 +62,16 @@ def set_explicit_h(explicit_h: bool) -> None:
     """
     global EXPLICIT_H
     EXPLICIT_H = explicit_h
+
+
+def set_explicit_h_solvent(explicit_h_solvent: bool) -> None:
+    """
+    Sets whether RDKit molecules will be constructed with explicit Hs for solvent molecules.
+
+    :param explicit_h_solvent: Boolean whether to keep explicit Hs from input for solvent molecules.
+    """
+    global EXPLICIT_H_SOLVENT
+    EXPLICIT_H_SOLVENT = explicit_h_solvent
 
 
 def set_reaction(reaction: bool, mode: str) -> None:
@@ -75,17 +91,61 @@ def set_reaction(reaction: bool, mode: str) -> None:
     
         EXTRA_ATOM_FDIM = ATOM_FDIM - MAX_ATOMIC_NUM -1
         EXTRA_BOND_FDIM = BOND_FDIM
-        REACTION_MODE = mode        
+        REACTION_MODE = mode
 
-        
-def is_explicit_h() -> bool:
+
+def set_reaction_solvent(reaction_solvent: bool, mode: str) -> None:
+    """
+    Sets whether to use both a reaction and a solvent molecule as input and adapts feature dimensions.
+
+    :param reaction_solvent: Boolean whether to expect reactions in solvents as input.
+    :param mode: Reaction mode to construct atom and bond feature vectors.
+
+    """
+    global REACTION_SOLVENT
+    REACTION_SOLVENT = reaction_solvent
+    if reaction_solvent:
+        global REACTION_MODE
+        global EXTRA_BOND_FDIM
+        global EXTRA_ATOM_FDIM
+
+        EXTRA_ATOM_FDIM = ATOM_FDIM - MAX_ATOMIC_NUM - 1
+        EXTRA_BOND_FDIM = BOND_FDIM
+        REACTION_MODE = mode
+
+
+def is_solvent(mol: Union[str, Chem.Mol, Tuple[Chem.Mol, Chem.Mol]]) -> bool:
+    """
+    Returns whether the molecule is a solvent molecule or not. This is only true if :code:`REACTION_SOLVENT` is True
+    and the input molecule is not a reaction (i.e. mol is not tuple and if it is str, it doesn't contain ">".
+
+    :param mol: A SMILES or an RDKit molecule.
+
+    """
+    if REACTION_SOLVENT:
+        if isinstance(mol, str) and not ">" in mol:
+            return True
+        elif isinstance(mol, Chem.Mol):
+            return True
+    return False
+
+
+def is_explicit_h(is_solvent: bool = False) -> bool:
     r"""Returns whether to use retain explicit Hs"""
-    return EXPLICIT_H
+    if is_solvent:
+        return EXPLICIT_H_SOLVENT
+    else:
+        return EXPLICIT_H
 
 
-def is_reaction() -> bool:
+def is_reaction(is_solvent: bool = False) -> bool:
     r"""Returns whether to use reactions as input"""
-    return REACTION
+    if REACTION_SOLVENT:
+        if not is_solvent:
+            return True
+    elif REACTION:
+        return True
+    return False
 
 
 def reaction_mode() -> str:
@@ -101,7 +161,8 @@ def set_extra_atom_fdim(extra):
 
 def get_bond_fdim(atom_messages: bool = False,
                   overwrite_default_bond: bool = False,
-                  overwrite_default_atom: bool = False) -> int:
+                  overwrite_default_atom: bool = False,
+                  is_reaction: bool = False) -> int:
     """
     Gets the dimensionality of the bond feature vector.
 
@@ -110,11 +171,16 @@ def get_bond_fdim(atom_messages: bool = False,
                           Otherwise it contains both atom and bond features.
     :param overwrite_default_bond: Whether to overwrite the default bond descriptors
     :param overwrite_default_atom: Whether to overwrite the default atom descriptors
+    :param is_reaction: Whether to add :code:`EXTRA_BOND_FDIM` for reaction input when :code:`REACTION_MODE:` is not None
     :return: The dimensionality of the bond feature vector.
     """
 
-    return (not overwrite_default_bond) * BOND_FDIM + EXTRA_BOND_FDIM + \
-           (not atom_messages) * get_atom_fdim(overwrite_default_atom=overwrite_default_atom)
+    if REACTION_MODE:
+        return (not overwrite_default_bond) * BOND_FDIM + is_reaction * EXTRA_BOND_FDIM + \
+               (not atom_messages) * get_atom_fdim(overwrite_default_atom=overwrite_default_atom, is_reaction=is_reaction)
+    else:
+        return (not overwrite_default_bond) * BOND_FDIM + EXTRA_BOND_FDIM + \
+               (not atom_messages) * get_atom_fdim(overwrite_default_atom=overwrite_default_atom, is_reaction=is_reaction)
 
 
 def set_extra_bond_fdim(extra):
@@ -235,6 +301,10 @@ class MolGraph:
     * :code:`b2revb`: A mapping from a bond index to the index of the reverse bond.
     * :code:`overwrite_default_atom_features`: A boolean to overwrite default atom descriptors.
     * :code:`overwrite_default_bond_features`: A boolean to overwrite default bond descriptors.
+    * :code:`is_solvent`: A boolean whether the molecule is a solvent.
+    * :code:`is_reaction`: A boolean whether the molecule is a reaction.
+    * :code:`is_explicit_h`: A boolean whether to retain explicit Hs
+    * :code:`reaction_mode`:  Reaction mode to construct atom and bond feature vectors
     """
 
     def __init__(self, mol: Union[str, Chem.Mol, Tuple[Chem.Mol, Chem.Mol]],
@@ -249,8 +319,9 @@ class MolGraph:
         :param overwrite_default_atom_features: Boolean to overwrite default atom features by atom_features instead of concatenating
         :param overwrite_default_bond_features: Boolean to overwrite default bond features by bond_features instead of concatenating
         """
-        self.is_reaction = is_reaction()
-        self.is_explicit_h = is_explicit_h()
+        self.is_solvent = is_solvent(mol)
+        self.is_reaction = is_reaction(self.is_solvent)
+        self.is_explicit_h = is_explicit_h(self.is_solvent)
         self.reaction_mode = reaction_mode()
         
         # Convert SMILES to RDKit molecule if necessary
@@ -419,9 +490,12 @@ class BatchMolGraph:
         """
         self.overwrite_default_atom_features = mol_graphs[0].overwrite_default_atom_features
         self.overwrite_default_bond_features = mol_graphs[0].overwrite_default_bond_features
-        self.atom_fdim = get_atom_fdim(overwrite_default_atom=self.overwrite_default_atom_features)
+        self.is_reaction = mol_graphs[0].is_reaction
+        self.atom_fdim = get_atom_fdim(overwrite_default_atom=self.overwrite_default_atom_features,
+                                       is_reaction=self.is_reaction)
         self.bond_fdim = get_bond_fdim(overwrite_default_bond=self.overwrite_default_bond_features,
-                                       overwrite_default_atom=self.overwrite_default_atom_features)
+                                       overwrite_default_atom=self.overwrite_default_atom_features,
+                                       is_reaction=self.is_reaction)
 
         # Start n_atoms and n_bonds at 1 b/c zero padding
         self.n_atoms = 1  # number of atoms (start at 1 b/c need index 0 as padding)

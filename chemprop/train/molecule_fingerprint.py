@@ -8,7 +8,7 @@ from chemprop.args import PredictArgs, TrainArgs
 from chemprop.data import get_data, get_data_from_smiles, MoleculeDataLoader, MoleculeDataset
 from chemprop.utils import load_args, load_checkpoint, makedirs, timeit, load_scalers, update_prediction_args
 from chemprop.data import MoleculeDataLoader, MoleculeDataset
-from chemprop.features import set_reaction, set_explicit_h
+from chemprop.features import set_reaction, set_reaction_solvent, set_explicit_h, set_explicit_h_solvent
 from chemprop.models import MoleculeModel
 
 @timeit()
@@ -31,7 +31,9 @@ def molecule_fingerprint(args: PredictArgs, smiles: List[List[str]] = None) -> L
 
     #set explicit H option and reaction option
     set_explicit_h(train_args.explicit_h)
+    set_explicit_h_solvent(train_args.explicit_h_solvent)
     set_reaction(train_args.reaction, train_args.reaction_mode)
+    set_reaction_solvent(train_args.reaction_solvent, train_args.reaction_mode)
 
     print('Loading data')
     if smiles is not None:

@@ -14,7 +14,8 @@ from chemprop.args import TrainArgs
 from chemprop.constants import TEST_SCORES_FILE_NAME, TRAIN_LOGGER_NAME
 from chemprop.data import get_data, get_task_names, MoleculeDataset, validate_dataset_type
 from chemprop.utils import create_logger, makedirs, timeit
-from chemprop.features import set_extra_atom_fdim, set_extra_bond_fdim, set_explicit_h, set_reaction
+from chemprop.features import set_extra_atom_fdim, set_extra_bond_fdim, set_explicit_h, set_explicit_h_solvent, \
+    set_reaction, set_reaction_solvent
 
 
 @timeit(logger_name=TRAIN_LOGGER_NAME)
@@ -58,7 +59,9 @@ def cross_validate(args: TrainArgs,
 
     #set explicit H option and reaction option
     set_explicit_h(args.explicit_h)
+    set_explicit_h_solvent(args.explicit_h_solvent)
     set_reaction(args.reaction, args.reaction_mode)
+    set_reaction_solvent(args.reaction_solvent, args.reaction_mode)
         
     # Get data
     debug('Loading data')
