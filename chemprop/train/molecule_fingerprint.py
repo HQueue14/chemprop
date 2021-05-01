@@ -99,7 +99,10 @@ def molecule_fingerprint(args: PredictArgs, smiles: List[List[str]] = None) -> L
     makedirs(args.preds_path, isfile=True)
 
     # Copy predictions over to full_data
-    total_hidden_size = args.hidden_size * args.number_of_molecules
+    if args.reaction_solvent:
+        total_hidden_size = args.hidden_size * args.hidden_size_solvent
+    else:
+        total_hidden_size = args.hidden_size * args.number_of_molecules
     for full_index, datapoint in enumerate(full_data):
         valid_index = full_to_valid_indices.get(full_index, None)
         preds = model_preds[valid_index] if valid_index is not None else ['Invalid SMILES'] * total_hidden_size

@@ -306,6 +306,12 @@ class TrainArgs(CommonArgs):
     mpn_shared: bool = False
     """Whether to use the same message passing neural network for all input molecules
     Only relevant if :code:`number_of_molecules > 1`"""
+    bias_solvent: bool = False
+    """Whether to add bias to linear layers for solvent MPN if :code:`reaction_solvent` is True."""
+    hidden_size_solvent: int = 300
+    """Dimensionality of hidden layers in solvent MPN if :code:`reaction_solvent` is True."""
+    depth_solvent: int = 3
+    """Number of message passing steps for solvent if :code:`reaction_solvent` is True."""
     dropout: float = 0.0
     """Dropout probability."""
     activation: Literal['ReLU', 'LeakyReLU', 'PReLU', 'tanh', 'SELU', 'ELU'] = 'ReLU'

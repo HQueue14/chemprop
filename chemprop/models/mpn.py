@@ -14,19 +14,23 @@ from chemprop.nn_utils import index_select_ND, get_activation_function
 class MPNEncoder(nn.Module):
     """An :class:`MPNEncoder` is a message passing neural network for encoding a molecule."""
 
-    def __init__(self, args: TrainArgs, atom_fdim: int, bond_fdim: int):
+    def __init__(self, args: TrainArgs, atom_fdim: int, bond_fdim: int, hidden_size: int = None,
+                 bias: bool = None, depth: int = None):
         """
         :param args: A :class:`~chemprop.args.TrainArgs` object containing model arguments.
         :param atom_fdim: Atom feature vector dimension.
         :param bond_fdim: Bond feature vector dimension.
+        :param hidden_size: Hidden layers dimension
+        :param bias: Whether to add bias to linear layers
+        :param depth: Number of message passing steps
         """
         super(MPNEncoder, self).__init__()
         self.atom_fdim = atom_fdim
         self.bond_fdim = bond_fdim
+        self.hidden_size = hidden_size or args.hidden_size
+        self.bias = bias or args.bias
+        self.depth = depth or args.depth
         self.atom_messages = args.atom_messages
-        self.hidden_size = args.hidden_size
-        self.bias = args.bias
-        self.depth = args.depth
         self.dropout = args.dropout
         self.layers_per_message = 1
         self.undirected = args.undirected
@@ -198,7 +202,8 @@ class MPN(nn.Module):
                                                    overwrite_default_bond=args.overwrite_default_bond_features,
                                                    atom_messages=args.atom_messages,
                                                    is_reaction=False)
-            self.encoder_solvent = MPNEncoder(args, self.atom_fdim_solvent, self.bond_fdim_solvent)
+            self.encoder_solvent = MPNEncoder(args, self.atom_fdim_solvent, self.bond_fdim_solvent,
+                                              args.hidden_size_solvent, args.bias_solvent, args.depth_solvent)
 
     def forward(self,
                 batch: Union[List[List[str]], List[List[Chem.Mol]], List[List[Tuple[Chem.Mol, Chem.Mol]]], List[BatchMolGraph]],
