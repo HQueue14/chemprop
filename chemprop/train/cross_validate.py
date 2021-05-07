@@ -11,7 +11,7 @@ import pandas as pd
 
 from .run_training import run_training
 from chemprop.args import TrainArgs
-from chemprop.constants import TEST_SCORES_FILE_NAME, TRAIN_LOGGER_NAME
+from chemprop.constants import TEST_SCORES_FILE_NAME, VAL_SCORES_FILE_NAME, TRAIN_SCORES_FILE_NAME, TRAIN_LOGGER_NAME
 from chemprop.data import get_data, get_task_names, MoleculeDataset, validate_dataset_type
 from chemprop.utils import create_logger, makedirs, timeit
 from chemprop.features import set_extra_atom_fdim, set_extra_bond_fdim, set_explicit_h, set_explicit_h_solvent, \
@@ -167,6 +167,130 @@ def cross_validate(args: TrainArgs,
         all_preds = pd.concat([pd.read_csv(os.path.join(save_dir, f'fold_{fold_num}', 'test_preds.csv'))
                                for fold_num in range(args.num_folds)])
         all_preds.to_csv(os.path.join(save_dir, 'test_preds.csv'), index=False)
+
+    #  Optionally save validation scores. This only works if val_scores.json exists
+    if args.save_validation_scores:
+        all_scores = defaultdict(list)
+        for fold_num in range(args.num_folds):
+            args.seed = init_seed + fold_num
+            args.save_dir = os.path.join(save_dir, f'fold_{fold_num}')
+
+            # If trained models exist, load results from trained models
+            val_scores_path = os.path.join(args.save_dir, 'val_scores.json')
+            if os.path.exists(val_scores_path):
+                with open(val_scores_path) as f:
+                    model_scores = json.load(f)
+
+            for metric, scores in model_scores.items():
+                all_scores[metric].append(scores)
+        all_scores = dict(all_scores)
+
+        # Convert scores to numpy arrays
+        for metric, scores in all_scores.items():
+            all_scores[metric] = np.array(scores)
+
+        # Report results
+        info(f'{args.num_folds}-fold cross validation: validation scores')
+
+        # Report scores for each fold
+        for fold_num in range(args.num_folds):
+            for metric, scores in all_scores.items():
+                info(f'\tSeed {init_seed + fold_num} ==> validation {metric} = {np.nanmean(scores[fold_num]):.6f}')
+
+                if args.show_individual_scores:
+                    for task_name, score in zip(args.task_names, scores[fold_num]):
+                        info(f'\t\tSeed {init_seed + fold_num} ==> validation {task_name} {metric} = {score:.6f}')
+
+        # Report scores across folds
+        for metric, scores in all_scores.items():
+            avg_scores = np.nanmean(scores, axis=1)  # average score for each model across tasks
+            mean_score, std_score = np.nanmean(avg_scores), np.nanstd(avg_scores)
+            info(f'Overall validation {metric} = {mean_score:.6f} +/- {std_score:.6f}')
+
+            if args.show_individual_scores:
+                for task_num, task_name in enumerate(args.task_names):
+                    info(f'\tOverall validation {task_name} {metric} = '
+                         f'{np.nanmean(scores[:, task_num]):.6f} +/- {np.nanstd(scores[:, task_num]):.6f}')
+
+        # Save scores
+        with open(os.path.join(save_dir, VAL_SCORES_FILE_NAME), 'w') as f:
+            writer = csv.writer(f)
+
+            header = ['Task']
+            for metric in args.metrics:
+                header += [f'Mean {metric}', f'Standard deviation {metric}'] + \
+                          [f'Fold {i} {metric}' for i in range(args.num_folds)]
+            writer.writerow(header)
+
+            for task_num, task_name in enumerate(args.task_names):
+                row = [task_name]
+                for metric, scores in all_scores.items():
+                    task_scores = scores[:, task_num]
+                    mean, std = np.nanmean(task_scores), np.nanstd(task_scores)
+                    row += [mean, std] + task_scores.tolist()
+                writer.writerow(row)
+
+    #  Optionally save training scores. This only works if train_scores.json exists
+    if args.save_train_scores:
+        all_scores = defaultdict(list)
+        for fold_num in range(args.num_folds):
+            args.seed = init_seed + fold_num
+            args.save_dir = os.path.join(save_dir, f'fold_{fold_num}')
+
+            # If trained models exist, load results from trained models
+            train_scores_path = os.path.join(args.save_dir, 'train_scores.json')
+            if os.path.exists(train_scores_path):
+                with open(train_scores_path) as f:
+                    model_scores = json.load(f)
+
+            for metric, scores in model_scores.items():
+                all_scores[metric].append(scores)
+        all_scores = dict(all_scores)
+
+        # Convert scores to numpy arrays
+        for metric, scores in all_scores.items():
+            all_scores[metric] = np.array(scores)
+
+        # Report results
+        info(f'{args.num_folds}-fold cross validation: training scores')
+
+        # Report scores for each fold
+        for fold_num in range(args.num_folds):
+            for metric, scores in all_scores.items():
+                info(f'\tSeed {init_seed + fold_num} ==> training {metric} = {np.nanmean(scores[fold_num]):.6f}')
+
+                if args.show_individual_scores:
+                    for task_name, score in zip(args.task_names, scores[fold_num]):
+                        info(f'\t\tSeed {init_seed + fold_num} ==> training {task_name} {metric} = {score:.6f}')
+
+        # Report scores across folds
+        for metric, scores in all_scores.items():
+            avg_scores = np.nanmean(scores, axis=1)  # average score for each model across tasks
+            mean_score, std_score = np.nanmean(avg_scores), np.nanstd(avg_scores)
+            info(f'Overall training {metric} = {mean_score:.6f} +/- {std_score:.6f}')
+
+            if args.show_individual_scores:
+                for task_num, task_name in enumerate(args.task_names):
+                    info(f'\tOverall training {task_name} {metric} = '
+                         f'{np.nanmean(scores[:, task_num]):.6f} +/- {np.nanstd(scores[:, task_num]):.6f}')
+
+        # Save scores
+        with open(os.path.join(save_dir, TRAIN_SCORES_FILE_NAME), 'w') as f:
+            writer = csv.writer(f)
+
+            header = ['Task']
+            for metric in args.metrics:
+                header += [f'Mean {metric}', f'Standard deviation {metric}'] + \
+                          [f'Fold {i} {metric}' for i in range(args.num_folds)]
+            writer.writerow(header)
+
+            for task_num, task_name in enumerate(args.task_names):
+                row = [task_name]
+                for metric, scores in all_scores.items():
+                    task_scores = scores[:, task_num]
+                    mean, std = np.nanmean(task_scores), np.nanstd(task_scores)
+                    row += [mean, std] + task_scores.tolist()
+                writer.writerow(row)
 
     return mean_score, std_score
 

@@ -152,6 +152,22 @@ def run_training(args: TrainArgs,
     else:
         sum_test_preds = np.zeros((len(test_smiles), args.num_tasks))
 
+    # Optionally set up validation set evaluation
+    if args.save_validation_scores:
+        val_smiles, val_targets = val_data.smiles(), val_data.targets()
+        if args.dataset_type == 'multiclass':
+            sum_val_preds = np.zeros((len(val_smiles), args.num_tasks, args.multiclass_num_classes))
+        else:
+            sum_val_preds = np.zeros((len(val_smiles), args.num_tasks))
+
+    # Optionally set up training set evaluation
+    if args.save_train_scores:
+        train_smiles, train_targets = train_data.smiles(), train_data.targets()
+        if args.dataset_type == 'multiclass':
+            sum_train_preds = np.zeros((len(train_smiles), args.num_tasks, args.multiclass_num_classes))
+        else:
+            sum_train_preds = np.zeros((len(train_smiles), args.num_tasks))
+
     # Automatically determine whether to cache
     if len(data) <= args.cache_cutoff:
         set_cache_graph(True)
@@ -179,6 +195,14 @@ def run_training(args: TrainArgs,
         batch_size=args.batch_size,
         num_workers=num_workers
     )
+
+    if args.save_train_scores:
+        # Create a data loader without shuffle for training scores evaluation
+        train_data_loader_scores = MoleculeDataLoader(
+            dataset=train_data,
+            batch_size=args.batch_size,
+            num_workers=num_workers
+        )
 
     if args.class_balance:
         debug(f'With class_balance, effective train size = {train_data_loader.iter_size:,}')
@@ -311,6 +335,64 @@ def run_training(args: TrainArgs,
                     writer.add_scalar(f'test_{task_name}_{metric}', test_score, n_iter)
         writer.close()
 
+        # Optionally save validation scores for the best model
+        if args.save_validation_scores:
+            val_preds = predict(
+                model=model,
+                data_loader=val_data_loader,
+                scaler=scaler
+            )
+            val_scores = evaluate_predictions(
+                preds=val_preds,
+                targets=val_targets,
+                num_tasks=args.num_tasks,
+                metrics=args.metrics,
+                dataset_type=args.dataset_type,
+                logger=logger
+            )
+
+            if len(val_preds) != 0:
+                sum_val_preds += np.array(val_preds)
+
+            # Average validation score
+            for metric, scores in val_scores.items():
+                avg_val_score = np.nanmean(scores)
+                info(f'Model {model_idx} validation {metric} = {avg_val_score:.6f}')
+
+                if args.show_individual_scores:
+                    # Individual test scores
+                    for task_name, val_score in zip(args.task_names, scores):
+                        info(f'Model {model_idx} validation {task_name} {metric} = {val_score:.6f}')
+
+        # Optionally save training scores for the best model
+        if args.save_train_scores:
+            train_preds = predict(
+                model=model,
+                data_loader=train_data_loader_scores,
+                scaler=scaler
+            )
+            train_scores = evaluate_predictions(
+                preds=train_preds,
+                targets=train_targets,
+                num_tasks=args.num_tasks,
+                metrics=args.metrics,
+                dataset_type=args.dataset_type,
+                logger=logger
+            )
+
+            if len(train_preds) != 0:
+                sum_train_preds += np.array(train_preds)
+
+            # Average training score
+            for metric, scores in train_scores.items():
+                avg_train_score = np.nanmean(scores)
+                info(f'Model {model_idx} training {metric} = {avg_train_score:.6f}')
+
+                if args.show_individual_scores:
+                    # Individual test scores
+                    for task_name, train_score in zip(args.task_names, scores):
+                        info(f'Model {model_idx} training {task_name} {metric} = {train_score:.6f}')
+
     # Evaluate ensemble on test set
     avg_test_preds = (sum_test_preds / args.ensemble_size).tolist()
 
@@ -345,5 +427,61 @@ def run_training(args: TrainArgs,
             test_preds_dataframe[task_name] = [pred[i] for pred in avg_test_preds]
 
         test_preds_dataframe.to_csv(os.path.join(args.save_dir, 'test_preds.csv'), index=False)
+
+    # Optionally save validation scores for the best model
+    if args.save_validation_scores:
+        # Evaluate ensemble on validation set
+        avg_val_preds = (sum_val_preds / args.ensemble_size).tolist()
+
+        ensemble_val_scores = evaluate_predictions(
+            preds=avg_val_preds,
+            targets=val_targets,
+            num_tasks=args.num_tasks,
+            metrics=args.metrics,
+            dataset_type=args.dataset_type,
+            logger=logger
+        )
+
+        for metric, scores in ensemble_val_scores.items():
+            # Average ensemble score
+            avg_ensemble_val_score = np.nanmean(scores)
+            info(f'Ensemble val {metric} = {avg_ensemble_val_score:.6f}')
+
+            # Individual ensemble scores
+            if args.show_individual_scores:
+                for task_name, ensemble_score in zip(args.task_names, scores):
+                    info(f'Ensemble validation {task_name} {metric} = {ensemble_score:.6f}')
+
+        # Save scores
+        with open(os.path.join(args.save_dir, 'val_scores.json'), 'w') as f:
+            json.dump(ensemble_val_scores, f, indent=4, sort_keys=True)
+
+    # Optionally save training scores for the best model
+    if args.save_train_scores:
+        # Evaluate ensemble on training set
+        avg_train_preds = (sum_train_preds / args.ensemble_size).tolist()
+
+        ensemble_train_scores = evaluate_predictions(
+            preds=avg_train_preds,
+            targets=train_targets,
+            num_tasks=args.num_tasks,
+            metrics=args.metrics,
+            dataset_type=args.dataset_type,
+            logger=logger
+        )
+
+        for metric, scores in ensemble_train_scores.items():
+            # Average ensemble score
+            avg_ensemble_train_score = np.nanmean(scores)
+            info(f'Ensemble training {metric} = {avg_ensemble_train_score:.6f}')
+
+            # Individual ensemble scores
+            if args.show_individual_scores:
+                for task_name, ensemble_score in zip(args.task_names, scores):
+                    info(f'Ensemble training {task_name} {metric} = {ensemble_score:.6f}')
+
+        # Save scores
+        with open(os.path.join(args.save_dir, 'train_scores.json'), 'w') as f:
+            json.dump(ensemble_train_scores, f, indent=4, sort_keys=True)
 
     return ensemble_scores
