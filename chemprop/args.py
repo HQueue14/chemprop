@@ -290,6 +290,16 @@ class TrainArgs(CommonArgs):
     """
     save_preds: bool = False
     """Whether to save test split predictions during training."""
+    save_validation_scores: bool = False
+    """
+    Whether to save validation scores at the end. It will display the final validation scores in the log files
+    and save the final validation scores as 'val_scores.csv'.
+    """
+    save_train_scores: bool = False
+    """
+    Whether to save training scores at the end. It will display the final training scores in the log files
+    and save the final training scores as 'train_scores.csv'.
+    """
     resume_experiment: bool = False
     """
     Whether to resume the experiment.
