@@ -15,7 +15,9 @@ from chemprop.constants import TEST_SCORES_FILE_NAME, VAL_SCORES_FILE_NAME, TRAI
 from chemprop.data import get_data, get_task_names, MoleculeDataset, validate_dataset_type
 from chemprop.utils import create_logger, makedirs, timeit
 from chemprop.features import set_extra_atom_fdim, set_extra_bond_fdim, set_explicit_h, set_explicit_h_solvent, \
-    set_reaction, set_reaction_solvent
+    set_reaction, set_reaction_solvent, set_atom_feature_radical_elec, set_atom_feature_ring_size,\
+    set_atom_feature_lone_pair, set_atom_feature_H_bond_donor, set_atom_feature_H_bond_acceptor, \
+    set_atom_feature_electronegativity, set_atom_fdim
 
 
 @timeit(logger_name=TRAIN_LOGGER_NAME)
@@ -56,6 +58,15 @@ def cross_validate(args: TrainArgs,
     # Save args
     makedirs(args.save_dir)
     args.save(os.path.join(args.save_dir, 'args.json'))
+
+    #set additional atom features
+    set_atom_feature_radical_elec(args.atom_feature_radical_elec)
+    set_atom_feature_ring_size(args.atom_feature_ring_size)
+    set_atom_feature_lone_pair(args.atom_feature_lone_pair)
+    set_atom_feature_H_bond_donor(args.atom_feature_H_bond_donor)
+    set_atom_feature_H_bond_acceptor(args.atom_feature_H_bond_acceptor)
+    set_atom_feature_electronegativity(args.atom_feature_electronegativity)
+    set_atom_fdim()
 
     #set explicit H option and reaction option
     set_explicit_h(args.explicit_h)

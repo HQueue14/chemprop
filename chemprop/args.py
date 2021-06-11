@@ -385,6 +385,18 @@ class TrainArgs(CommonArgs):
     Whether H are explicitly specified in input for solvent molecules (and should be kept this way)
     when :code: `reaction_solvent` is True.
     """
+    atom_feature_radical_elec: bool = False
+    """Whether to use the number of radical electron as an additional atom feature"""
+    atom_feature_ring_size: bool = False
+    """Whether to use the size of the smallest ring as an additional atom feature"""
+    atom_feature_lone_pair: bool = False
+    """Whether to use the number of lone electron pairs as an additional atom feature"""
+    atom_feature_H_bond_donor: bool = False
+    """Whether to use the hydrogen bond donor as an additional atom feature"""
+    atom_feature_H_bond_acceptor: bool = False
+    """Whether to use the hydrogen bond acceptor as an additional atom feature"""
+    atom_feature_electronegativity: bool = False
+    """Whether to use electronegativity as an additional atom feature"""
 
     # Training arguments
     epochs: int = 30

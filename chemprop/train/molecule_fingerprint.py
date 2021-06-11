@@ -8,7 +8,9 @@ from chemprop.args import PredictArgs, TrainArgs
 from chemprop.data import get_data, get_data_from_smiles, MoleculeDataLoader, MoleculeDataset
 from chemprop.utils import load_args, load_checkpoint, makedirs, timeit, load_scalers, update_prediction_args
 from chemprop.data import MoleculeDataLoader, MoleculeDataset
-from chemprop.features import set_reaction, set_reaction_solvent, set_explicit_h, set_explicit_h_solvent
+from chemprop.features import set_reaction, set_reaction_solvent, set_explicit_h, set_explicit_h_solvent, \
+    set_atom_feature_radical_elec, set_atom_feature_ring_size, set_atom_feature_lone_pair, set_atom_feature_H_bond_donor, \
+    set_atom_feature_H_bond_acceptor, set_atom_feature_electronegativity, set_atom_fdim
 from chemprop.models import MoleculeModel
 
 @timeit()
@@ -28,6 +30,15 @@ def molecule_fingerprint(args: PredictArgs, smiles: List[List[str]] = None) -> L
     # Update args with training arguments
     update_prediction_args(predict_args=args, train_args=train_args, validate_feature_sources=False)
     args: Union[PredictArgs, TrainArgs]
+
+    #set additional atom features
+    set_atom_feature_radical_elec(train_args.atom_feature_radical_elec)
+    set_atom_feature_ring_size(train_args.atom_feature_ring_size)
+    set_atom_feature_lone_pair(train_args.atom_feature_lone_pair)
+    set_atom_feature_H_bond_donor(train_args.atom_feature_H_bond_donor)
+    set_atom_feature_H_bond_acceptor(train_args.atom_feature_H_bond_acceptor)
+    set_atom_feature_electronegativity(train_args.atom_feature_electronegativity)
+    set_atom_fdim()
 
     #set explicit H option and reaction option
     set_explicit_h(train_args.explicit_h)

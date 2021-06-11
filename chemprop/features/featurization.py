@@ -7,6 +7,7 @@ from chemprop.rdkit import make_mol
 
 # Atom feature sizes
 MAX_ATOMIC_NUM = 100
+global ATOM_FEATURES
 ATOM_FEATURES = {
     'atomic_num': list(range(MAX_ATOMIC_NUM)),
     'degree': [0, 1, 2, 3, 4, 5],
@@ -28,17 +29,23 @@ THREE_D_DISTANCE_MAX = 20
 THREE_D_DISTANCE_STEP = 1
 THREE_D_DISTANCE_BINS = list(range(0, THREE_D_DISTANCE_MAX + 1, THREE_D_DISTANCE_STEP))
 
-# len(choices) + 1 to include room for uncommon values; + 2 at end for IsAromatic and mass
-ATOM_FDIM = sum(len(choices) + 1 for choices in ATOM_FEATURES.values()) + 2
 EXTRA_ATOM_FDIM = 0
 BOND_FDIM = 14
 EXTRA_BOND_FDIM = 0
+ATOM_FEATURE_RADICAL_ELEC = False
+ATOM_FEATURE_RING_SIZE = False
+ATOM_FEATURE_LONE_PAIR = False
+ATOM_FEATURE_H_BOND_DONOR = False
+ATOM_FEATURE_H_BOND_ACCEPTOR = False
+ATOM_FEATURE_ELECTRONEGATIVITY = False
+ATOM_FDIM = 0
 REACTION_MODE = None
 EXPLICIT_H = False
 EXPLICIT_H_SOLVENT = False
 REACTION = False
 REACTION_SOLVENT = False
 
+periodic_table = Chem.GetPeriodicTable()
 
 def get_atom_fdim(overwrite_default_atom: bool = False, is_reaction: bool = False) -> int:
     """
@@ -52,6 +59,76 @@ def get_atom_fdim(overwrite_default_atom: bool = False, is_reaction: bool = Fals
         return (not overwrite_default_atom) * ATOM_FDIM + is_reaction * EXTRA_ATOM_FDIM
     else:
         return (not overwrite_default_atom) * ATOM_FDIM + EXTRA_ATOM_FDIM
+
+
+def set_atom_feature_radical_elec(atom_feature_radical_elec: bool) -> None:
+    """
+    Sets whether to use the number of radical electron as an additional atom feature.
+
+    :param atom_feature_radical_elec: Boolean whether to use the number of radical electron as an additional atom feature.
+    """
+    global ATOM_FEATURE_RADICAL_ELEC
+    ATOM_FEATURE_RADICAL_ELEC = atom_feature_radical_elec
+    if atom_feature_radical_elec:
+        ATOM_FEATURES['radical_electron_count'] = [0, 1, 2, 3]
+
+
+def set_atom_feature_ring_size(atom_feature_ring_size: bool) -> None:
+    """
+    Sets whether to use the size of the smallest ring as an additional atom feature.
+
+    :param atom_feature_ring_size: Boolean whether to use the size of the smallest ring as an additional atom feature.
+    """
+    global ATOM_FEATURE_RING_SIZE
+    ATOM_FEATURE_RING_SIZE = atom_feature_ring_size
+    if atom_feature_ring_size:
+        ATOM_FEATURES['in_ring_smallest_size'] = [0, 3, 4, 5, 6, 7, 8]
+
+
+def set_atom_feature_lone_pair(atom_feature_lone_pair: bool) -> None:
+    """
+    Sets whether to use the number of lone electron pairs as an additional atom feature.
+
+    :param atom_feature_lone_pair: Boolean whether to use the number of lone electron pairs as an additional atom feature.
+    """
+    global ATOM_FEATURE_LONE_PAIR
+    ATOM_FEATURE_LONE_PAIR = atom_feature_lone_pair
+    if atom_feature_lone_pair:
+        ATOM_FEATURES['lone_electron_pairs'] = [0, 1, 2, 3, 4]
+
+
+def set_atom_feature_H_bond_donor(atom_feature_H_bond_donor: bool) -> None:
+    """
+    Sets whether to use the hydrogen bond donor as an additional atom feature.
+
+    :param atom_feature_H_bond_donor: Boolean whether to use the hydrogen bond donor as an additional atom feature.
+    """
+    global ATOM_FEATURE_H_BOND_DONOR
+    ATOM_FEATURE_H_BOND_DONOR = atom_feature_H_bond_donor
+    if atom_feature_H_bond_donor:
+        ATOM_FEATURES['H_bond_donor'] = [0, 1, 2, 3]   #1-3 for N, O and F, 0 if none
+
+
+def set_atom_feature_H_bond_acceptor(atom_feature_H_bond_acceptor: bool) -> None:
+    """
+    Sets whether to use the hydrogen bond acceptor as an additional atom feature.
+
+    :param atom_feature_H_bond_acceptor: Boolean whether to use the hydrogen bond acceptor as an additional atom feature.
+    """
+    global ATOM_FEATURE_H_BOND_ACCEPTOR
+    ATOM_FEATURE_H_BOND_ACCEPTOR = atom_feature_H_bond_acceptor
+    if atom_feature_H_bond_acceptor:
+        ATOM_FEATURES['H_bond_acceptor'] = [0, 1, 2, 3]  #1-3 for N, O and F, 0 if none
+
+
+def set_atom_feature_electronegativity(atom_feature_electronegativity: bool) -> None:
+    """
+    Sets whether to use electronegativity as an additional atom feature.
+
+    :param atom_feature_electronegativity: Boolean whether to use electronegativity as an additional atom feature.
+    """
+    global ATOM_FEATURE_ELECTRONEGATIVITY
+    ATOM_FEATURE_ELECTRONEGATIVITY = atom_feature_electronegativity
 
 
 def set_explicit_h(explicit_h: bool) -> None:
@@ -153,6 +230,20 @@ def reaction_mode() -> str:
     return REACTION_MODE
 
 
+def set_atom_fdim() -> int:
+    """Set the dimensionality of the atom feature vector."""
+    global ATOM_FDIM
+    # len(choices) + 1 to include room for uncommon values; + 2 at end for IsAromatic and mass
+    ATOM_FDIM = sum(len(choices) + 1 for choices in ATOM_FEATURES.values()) + 2
+    for no_uncommon_val_feature in [ATOM_FEATURE_H_BOND_DONOR, ATOM_FEATURE_H_BOND_ACCEPTOR]:
+        # These atom features do not need a room for uncommon values, so subtract 1 from ATOM_FDIM
+        # for each of these atom features used.
+        if no_uncommon_val_feature:
+            ATOM_FDIM += -1
+    if ATOM_FEATURE_ELECTRONEGATIVITY:
+        ATOM_FDIM += 1
+
+
 def set_extra_atom_fdim(extra):
     """Change the dimensionality of the atom feature vector."""
     global EXTRA_ATOM_FDIM
@@ -189,20 +280,133 @@ def set_extra_bond_fdim(extra):
     EXTRA_BOND_FDIM = extra
 
 
-def onek_encoding_unk(value: int, choices: List[int]) -> List[int]:
+def onek_encoding_unk(value: int, choices: List[int], no_uncommon_val: bool = False) -> List[int]:
     """
     Creates a one-hot encoding with an extra category for uncommon values.
 
     :param value: The value for which the encoding should be one.
     :param choices: A list of possible values.
-    :return: A one-hot encoding of the :code:`value` in a list of length :code:`len(choices) + 1`.
+    :param no_uncommon_val: Boolean for whether to include room for uncommon values
+    :return: A one-hot encoding of the :code:`value` in a list of length :code:`len(choices) + 1` if
+             :code:`no_uncommon_val` is False and of length :code:`len(choices)` if :code:`no_uncommon_val` is True.
              If :code:`value` is not in :code:`choices`, then the final element in the encoding is 1.
     """
-    encoding = [0] * (len(choices) + 1)
-    index = choices.index(value) if value in choices else -1
+    if no_uncommon_val:
+        encoding = [0] * len(choices)
+        index = choices.index(value)
+    else:
+        encoding = [0] * (len(choices) + 1)
+        index = choices.index(value) if value in choices else -1
     encoding[index] = 1
 
     return encoding
+
+
+def get_ring_size(atom: Chem.rdchem.Atom) -> int:
+    """
+    Returns the size of the smallest ring that the atom is in.
+
+    :param atom: An RDKit atom.
+    :return: An integer that corresponds to the size of the smallest ring that the atom is in.
+    """
+    if atom.IsInRing():
+        for i in range(3, 30):
+            if atom.IsInRingSize(i):
+                return i
+    else:
+        return 0
+
+
+def get_lone_electron_pairs(atom: Chem.rdchem.Atom) -> int:
+    """
+    Returns the number of electron lone pairs.
+
+    :param atom: An RDKit atom.
+    :return: An integer that corresponds to the number of electron lone pairs.
+    """
+    symbol = atom.GetSymbol()
+    if symbol == 'C' or symbol == 'Si':
+        return 0 - atom.GetFormalCharge()
+    elif symbol == 'S' or symbol == 'O':
+        return 2 - atom.GetFormalCharge()
+    elif symbol == 'N' or symbol == 'P':
+        return 1 - atom.GetFormalCharge()
+    elif symbol == 'F' or symbol == 'Cl' or symbol == 'Br' or symbol == 'I':
+        return 3 - atom.GetFormalCharge()
+    else:
+        return 0
+
+
+def get_h_bond_donor(atom: Chem.rdchem.Atom) -> int:
+    """
+    Returns the index for a 'H_bond_donor' atom feature one-hot encoding.
+
+    :param atom: An RDKit atom.
+    :return: An integer that corresponds to the index for a 'H_bond_donor' atom feature one-hot encoding.
+    """
+    if atom.GetSymbol() == "N" and atom.GetTotalNumHs() > 0:
+        return 1
+    elif atom.GetSymbol() == "O" and atom.GetTotalNumHs() > 0:
+        return 2
+    elif atom.GetSymbol() == "F" and atom.GetTotalNumHs() > 0:
+        return 3
+    else:
+        return 0
+
+
+def get_h_bond_acceptor(atom: Chem.rdchem.Atom) -> int:
+    """
+    Returns the index for a 'H_bond_acceptor' atom feature one-hot encoding.
+
+    :param atom: An RDKit atom.
+    :return: An integer that corresponds to the index for a 'H_bond_acceptor' atom feature one-hot encoding.
+    """
+    if atom.GetSymbol() == "N" and get_lone_electron_pairs(atom) > 0:
+        return 1
+    elif atom.GetSymbol() == "O" and get_lone_electron_pairs(atom) > 0:
+        return 2
+    elif atom.GetSymbol() == "F" and get_lone_electron_pairs(atom) > 0:
+        return 3
+    else:
+        return 0
+
+
+def get_electronegativity(atom: Chem.rdchem.Atom) -> float:
+    """
+    Returns the electronegativity of an atom.
+
+    :param atom: An RDKit atom.
+    :return: A float that corresponds to the electronegativity of an atom.
+    """
+    symbol = atom.GetSymbol()
+    if symbol == "H":
+        return 2.20
+    elif symbol == "C":
+        return 2.55
+    elif symbol == "B":
+        return 2.04
+    elif symbol == "N":
+        return 3.04
+    elif symbol == "O":
+        return 3.44
+    elif symbol == "F":
+        return 3.98
+    elif symbol == "Al":
+        return 1.61
+    elif symbol == "Si":
+        return 1.90
+    elif symbol == "P":
+        return 2.19
+    elif symbol == "S":
+        return 2.58
+    elif symbol == "Cl":
+        return 3.16
+    elif symbol == "Br":
+        return 2.96
+    elif symbol == "I":
+        return 2.66
+    else:
+        return 0
 
 
 def atom_features(atom: Chem.rdchem.Atom, functional_groups: List[int] = None) -> List[Union[bool, int, float]]:
@@ -224,6 +428,21 @@ def atom_features(atom: Chem.rdchem.Atom, functional_groups: List[int] = None) -
             onek_encoding_unk(int(atom.GetHybridization()), ATOM_FEATURES['hybridization']) + \
             [1 if atom.GetIsAromatic() else 0] + \
             [atom.GetMass() * 0.01]  # scaled to about the same range as other features
+        # Add additional atom features if they are used
+        if ATOM_FEATURE_RADICAL_ELEC:
+            features += onek_encoding_unk(int(atom.GetNumRadicalElectrons()), ATOM_FEATURES['radical_electron_count'])
+        if ATOM_FEATURE_RING_SIZE:
+            features += onek_encoding_unk(get_ring_size(atom), ATOM_FEATURES['in_ring_smallest_size'])
+        if ATOM_FEATURE_LONE_PAIR:
+            features += onek_encoding_unk(get_lone_electron_pairs(atom), ATOM_FEATURES['lone_electron_pairs'])
+        if ATOM_FEATURE_H_BOND_DONOR:
+            features += onek_encoding_unk(get_h_bond_donor(atom), ATOM_FEATURES['H_bond_donor'],
+                                          no_uncommon_val=True)
+        if ATOM_FEATURE_H_BOND_ACCEPTOR:
+            features += onek_encoding_unk(get_h_bond_acceptor(atom), ATOM_FEATURES['H_bond_acceptor'],
+                                          no_uncommon_val=True)
+        if ATOM_FEATURE_ELECTRONEGATIVITY:
+            features += [get_electronegativity(atom) * 0.1]
         if functional_groups is not None:
             features += functional_groups
     return features
