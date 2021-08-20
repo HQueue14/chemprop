@@ -17,12 +17,19 @@ from chemprop.utils import create_logger, makedirs, timeit
 
 
 SPACE = {
-    'hidden_size': hp.quniform('hidden_size', low=300, high=2400, q=100),
+    'hidden_size': hp.quniform('hidden_size', low=300, high=700, q=100),
     'depth': hp.quniform('depth', low=2, high=6, q=1),
-    'dropout': hp.quniform('dropout', low=0.0, high=0.4, q=0.05),
-    'ffn_num_layers': hp.quniform('ffn_num_layers', low=1, high=3, q=1)
+    'dropout': hp.quniform('dropout', low=0.0, high=0.3, q=0.05),
+    'ffn_num_layers': hp.quniform('ffn_num_layers', low=2, high=4, q=1),
+    'ffn_hidden_size': hp.quniform('ffn_hidden_size', low=400, high=1000, q=200),
+    'warmup_epochs': hp.quniform('warmup_epochs', low=2, high=6, q=2),
+    'batch_size': hp.quniform('batch_size', low=10, high=100, q=10),
+    'epochs': hp.quniform('epochs', low=80, high=200, q=30),
+    'init_lr': hp.loguniform('init_lr', low=np.log(1e-5), high=np.log(1e-3)),
+    'max_lr': hp.loguniform('max_lr', low=np.log(1e-5), high=np.log(1e-3)),
+    'final_lr': hp.loguniform('final_lr', low=np.log(1e-6), high=np.log(1e-4)),
 }
-INT_KEYS = ['hidden_size', 'depth', 'ffn_num_layers']
+INT_KEYS = ['hidden_size', 'depth', 'ffn_num_layers', 'ffn_hidden_size', 'warmup_epochs', 'batch_size', 'epochs']
 
 
 @timeit(logger_name=HYPEROPT_LOGGER_NAME)
@@ -65,7 +72,7 @@ def hyperopt(args: HyperoptArgs) -> None:
         for key, value in hyperparams.items():
             setattr(hyper_args, key, value)
 
-        hyper_args.ffn_hidden_size = hyper_args.hidden_size
+        # hyper_args.ffn_hidden_size = hyper_args.hidden_size
 
         # Record hyperparameters
         logger.info(hyperparams)
