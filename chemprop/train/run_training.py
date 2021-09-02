@@ -293,6 +293,16 @@ def run_training(args: TrainArgs,
                         debug(f'Validation {task_name} {metric} = {val_score:.6f}')
                         writer.add_scalar(f'validation_{task_name}_{metric}', val_score, n_iter)
 
+            # Save the prediction on the training set if `save_train_for_each_epoch` option is used
+            if args.save_train_pred_for_each_epoch:
+                train_preds = predict(
+                    model=model,
+                    data_loader=train_data_loader_scores,
+                    scaler=scaler
+                )
+                with open(os.path.join(save_dir, f'epoch_{epoch}_train_preds.json'), 'w') as f:
+                    json.dump(train_preds, f)
+
             # Save model checkpoint if improved validation score
             avg_val_score = np.nanmean(val_scores[args.metric])
             if args.minimize_score and avg_val_score < best_score or \
@@ -427,6 +437,33 @@ def run_training(args: TrainArgs,
             test_preds_dataframe[task_name] = [pred[i] for pred in avg_test_preds]
 
         test_preds_dataframe.to_csv(os.path.join(args.save_dir, 'test_preds.csv'), index=False)
+
+    # Optionally save training preds after each epoch
+    if args.save_train_pred_for_each_epoch:
+        train_pred_epoch_save_dir = os.path.join(args.save_dir, 'train_pred_for_epoch')
+        makedirs(train_pred_epoch_save_dir)
+        train_smiles, train_targets = train_data.smiles(), train_data.targets()
+        num_test_smiles = len(train_smiles)
+        for epoch in trange(args.epochs):
+            if args.dataset_type == 'multiclass':
+                sum_train_preds_epoch = np.zeros((num_test_smiles, args.num_tasks, args.multiclass_num_classes))
+            else:
+                sum_train_preds_epoch = np.zeros((num_test_smiles, args.num_tasks))
+            # Average over ensemble for each epoch
+            for model_idx in range(args.ensemble_size):
+                train_preds_file_path = os.path.join(args.save_dir, f'model_{model_idx}', f'epoch_{epoch}_train_preds.json')
+                with open(train_preds_file_path) as f:
+                    train_preds_per_ensemble = json.load(f)
+                    sum_train_preds_epoch += np.array(train_preds_per_ensemble)
+                os.remove(train_preds_file_path)
+
+            avg_train_preds_epoch = (sum_train_preds_epoch / args.ensemble_size).tolist()
+            train_preds_dataframe_epoch = pd.DataFrame(data={})
+            for i, task_name in enumerate(args.task_names):
+                train_preds_dataframe_epoch[task_name] = [pred[i] for pred in avg_train_preds_epoch]
+                train_preds_dataframe_epoch[f'{task_name}_abs_error'] = \
+                    [abs(pred[i] - target_val[i]) for pred, target_val in zip(avg_train_preds_epoch, train_targets)]
+            train_preds_dataframe_epoch.to_csv(os.path.join(train_pred_epoch_save_dir, f'epock_{epoch}_train_preds.csv'), index=False)
 
     # Optionally save validation scores for the best model
     if args.save_validation_scores:
