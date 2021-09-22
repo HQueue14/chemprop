@@ -292,6 +292,8 @@ class TrainArgs(CommonArgs):
     """Whether to save test split predictions during training."""
     save_train_pred_for_each_epoch: bool = False
     """Whether to save training predictions after each epoch."""
+    save_train_smiles: bool = False
+    """Whether to save training smiles"""
     save_validation_scores: bool = False
     """
     Whether to save validation scores at the end. It will display the final validation scores in the log files

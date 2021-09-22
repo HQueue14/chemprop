@@ -465,6 +465,11 @@ def run_training(args: TrainArgs,
                     [abs(pred[i] - target_val[i]) for pred, target_val in zip(avg_train_preds_epoch, train_targets)]
             train_preds_dataframe_epoch.to_csv(os.path.join(train_pred_epoch_save_dir, f'epock_{epoch}_train_preds.csv'), index=False)
 
+    # Optionally save train smiles
+    if args.save_train_smiles:
+        train_smiles_dataframe = pd.DataFrame(data={'smiles': train_data.smiles()})
+        train_smiles_dataframe.to_csv(os.path.join(args.save_dir, f'train_smiles.csv'), index=False)
+
     # Optionally save validation scores for the best model
     if args.save_validation_scores:
         # Evaluate ensemble on validation set
