@@ -53,7 +53,8 @@ def make_predictions(args: PredictArgs, smiles: List[List[str]] = None) -> List[
     set_explicit_h(train_args.explicit_h)
     set_explicit_h_solvent(train_args.explicit_h_solvent)
     set_reaction(train_args.reaction, train_args.reaction_mode)
-    set_reaction_solvent(train_args.reaction_solvent, train_args.reaction_mode)
+    set_reaction_solvent(train_args.reaction_solvent, train_args.reaction_mode,
+                         train_args.atom_descriptors_solvent_path is not None, train_args.bond_features_solvent_path is not None)
 
     print('Loading data')
     if smiles is not None:

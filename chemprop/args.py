@@ -104,10 +104,14 @@ class CommonArgs(Tap):
     """Path to the extra atom descriptors for reactants."""
     atom_descriptors_prod_path: str = None
     """Path to the extra atom descriptors for products."""
+    atom_descriptors_solvent_path: str = None
+    """Path to the extra atom descriptors for solvents."""
     bond_features_reac_path: str = None
     """Path to the extra bond descriptors for reactants that will be used as bond features to featurize a given molecule."""
     bond_features_prod_path: str = None
     """Path to the extra bond descriptors for products that will be used as bond features to featurize a given molecule."""
+    bond_features_solvent_path: str = None
+    """Path to the extra bond descriptors for solvents that will be used as bond features to featurize a given molecule."""
     no_cache_mol: bool = False
     """
     Whether to not cache the RDKit molecule for each SMILES string to reduce memory usage (cached by default).
@@ -388,18 +392,26 @@ class TrainArgs(CommonArgs):
     """Path to file with extra atom descriptors for reactants for separate val set."""
     separate_val_atom_descriptors_prod_path: str = None
     """Path to file with extra atom descriptors for products for separate val set."""
+    separate_val_atom_descriptors_solvent_path: str = None
+    """Path to file with extra atom descriptors for solvents for separate val set."""
     separate_test_atom_descriptors_reac_path: str = None
     """Path to file with extra atom descriptors for reactants for separate test set."""
     separate_test_atom_descriptors_prod_path: str = None
     """Path to file with extra atom descriptors for products for separate test set."""
+    separate_test_atom_descriptors_solvent_path: str = None
+    """Path to file with extra atom descriptors for solvents for separate test set."""
     separate_val_bond_features_reac_path: str = None
     """Path to file with extra atom descriptors for reactants for separate val set."""
     separate_val_bond_features_prod_path: str = None
     """Path to file with extra atom descriptors for products for separate val set."""
+    separate_val_bond_features_solvent_path: str = None
+    """Path to file with extra atom descriptors for solvents for separate val set."""
     separate_test_bond_features_reac_path: str = None
     """Path to file with extra atom descriptors for reactants for separate test set."""
     separate_test_bond_features_prod_path: str = None
     """Path to file with extra atom descriptors for products for separate test set."""
+    separate_test_bond_features_solvent_path: str = None
+    """Path to file with extra atom descriptors for solvents for separate test set."""
     config_path: str = None
     """
     Path to a :code:`.json` file containing arguments. Any arguments present in the config file

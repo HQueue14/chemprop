@@ -171,11 +171,13 @@ class MPN(nn.Module):
         self.reaction_solvent = args.reaction_solvent
 
         self.atom_fdim = atom_fdim or get_atom_fdim(overwrite_default_atom=args.overwrite_default_atom_features,
-                                                    is_reaction=(self.reaction or self.reaction_solvent))
+                                                    is_reaction=(self.reaction or self.reaction_solvent),
+                                                    is_solvent=False)
         self.bond_fdim = bond_fdim or get_bond_fdim(overwrite_default_atom=args.overwrite_default_atom_features,
                                                     overwrite_default_bond=args.overwrite_default_bond_features,
                                                     atom_messages=args.atom_messages,
-                                                    is_reaction=(self.reaction or self.reaction_solvent))
+                                                    is_reaction=(self.reaction or self.reaction_solvent),
+                                                    is_solvent=False)
 
         self.features_only = args.features_only
         self.use_input_features = args.use_input_features
@@ -197,11 +199,11 @@ class MPN(nn.Module):
             self.encoder = MPNEncoder(args, self.atom_fdim, self.bond_fdim)
             # Set separate atom_fdim and bond_fdim for solvent molecules
             self.atom_fdim_solvent = get_atom_fdim(overwrite_default_atom=args.overwrite_default_atom_features,
-                                                   is_reaction=False)
+                                                   is_reaction=False, is_solvent=True)
             self.bond_fdim_solvent = get_bond_fdim(overwrite_default_atom=args.overwrite_default_atom_features,
                                                    overwrite_default_bond=args.overwrite_default_bond_features,
                                                    atom_messages=args.atom_messages,
-                                                   is_reaction=False)
+                                                   is_reaction=False, is_solvent=True)
             self.encoder_solvent = MPNEncoder(args, self.atom_fdim_solvent, self.bond_fdim_solvent,
                                               args.hidden_size_solvent, args.bias_solvent, args.depth_solvent)
 

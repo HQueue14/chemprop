@@ -72,7 +72,8 @@ def cross_validate(args: TrainArgs,
     set_explicit_h(args.explicit_h)
     set_explicit_h_solvent(args.explicit_h_solvent)
     set_reaction(args.reaction, args.reaction_mode)
-    set_reaction_solvent(args.reaction_solvent, args.reaction_mode)
+    set_reaction_solvent(args.reaction_solvent, args.reaction_mode,
+                         args.atom_descriptors_solvent_path is not None, args.bond_features_solvent_path is not None)
         
     # Get data
     debug('Loading data')

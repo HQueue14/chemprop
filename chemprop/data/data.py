@@ -138,16 +138,18 @@ class MoleculeDatapoint:
         # Fix nans in atom_features
         if self.atom_features is not None:
             if isinstance(self.atom_features, Tuple):
-                self.atom_features = (np.where(np.isnan(self.atom_features[0]), replace_token, self.atom_features[0]),
-                                      np.where(np.isnan(self.atom_features[1]), replace_token, self.atom_features[1]))
+                atom_features_list = [np.where(np.isnan(self.atom_features[i]), replace_token, self.atom_features[i])
+                                      for i in range(len(self.atom_features))]
+                self.atom_features = tuple(atom_features_list)
             else:
                 self.atom_features = np.where(np.isnan(self.atom_features), replace_token, self.atom_features)
 
         # Fix nans in bond_descriptors
         if self.bond_features is not None:
             if isinstance(self.bond_features, Tuple):
-                self.bond_features = (np.where(np.isnan(self.bond_features[0]), replace_token, self.bond_features[0]),
-                                      np.where(np.isnan(self.bond_features[1]), replace_token, self.bond_features[1]))
+                bond_features_list = [np.where(np.isnan(self.bond_features[i]), replace_token, self.bond_features[i])
+                                      for i in range(len(self.bond_features))]
+                self.bond_features = tuple(bond_features_list)
             else:
                 self.bond_features = np.where(np.isnan(self.bond_features), replace_token, self.bond_features)
 
@@ -307,7 +309,8 @@ class MoleculeDataset(Dataset):
                     if s in SMILES_TO_GRAPH:
                         mol_graph = SMILES_TO_GRAPH[s]
                     else:
-                        if len(d.smiles) > 1 and (d.atom_features is not None or d.bond_features is not None):
+                        if len(d.smiles) > 1 and (d.atom_features is not None or d.bond_features is not None)\
+                                and not any(d.is_solvent_list):
                             raise NotImplementedError('Atom descriptors are currently only supported with one molecule '
                                                       'per input (i.e., number_of_molecules = 1).')
 
@@ -475,23 +478,23 @@ class MoleculeDataset(Dataset):
             # for reac, prod, make sure to vstack both
             if scale_atom_descriptors and not self._data[0].atom_descriptors is None:
                 if isinstance(self._data[0].raw_atom_descriptors, Tuple):
-                    features_reac = np.vstack([d.raw_atom_descriptors[0] for d in self._data])
-                    features_prod = np.vstack([d.raw_atom_descriptors[1] for d in self._data])
-                    features = np.concatenate((features_reac, features_prod), axis=0)
+                    features_list = [np.vstack([d.raw_atom_descriptors[i] for d in self._data])
+                                     for i in range(len(self._data[0].raw_atom_descriptors))]
+                    features = np.concatenate(features_list, axis=0)
                 else:
                     features = np.vstack([d.raw_atom_descriptors for d in self._data])
             elif scale_atom_descriptors and not self._data[0].atom_features is None:
                 if isinstance(self._data[0].raw_atom_features, Tuple):
-                    features_reac = np.vstack([d.raw_atom_features[0] for d in self._data])
-                    features_prod = np.vstack([d.raw_atom_features[1] for d in self._data])
-                    features = np.concatenate((features_reac, features_prod), axis=0)
+                    features_list = [np.vstack([d.raw_atom_features[i] for d in self._data])
+                                     for i in range(len(self._data[0].raw_atom_features))]
+                    features = np.concatenate(features_list, axis=0)
                 else:
                     features = np.vstack([d.raw_atom_features for d in self._data])
             elif scale_bond_features:
                 if isinstance(self._data[0].raw_bond_features, Tuple):
-                    features_reac = np.vstack([d.raw_bond_features[0] for d in self._data])
-                    features_prod = np.vstack([d.raw_bond_features[1] for d in self._data])
-                    features = np.concatenate((features_reac, features_prod), axis=0)
+                    features_list = [np.vstack([d.raw_bond_features[i] for d in self._data])
+                                     for i in range(len(self._data[0].raw_bond_features))]
+                    features = np.concatenate(features_list, axis=0)
                 else:
                     features = np.vstack([d.raw_bond_features for d in self._data])
             else:
@@ -502,27 +505,27 @@ class MoleculeDataset(Dataset):
         if scale_atom_descriptors and not self._data[0].atom_descriptors is None:
             if isinstance(self._data[0].raw_atom_descriptors, Tuple):
                 for d in self._data:
-                    scaled_reac = self._scaler.transform(d.raw_atom_descriptors[0])
-                    scaled_prod = self._scaler.transform(d.raw_atom_descriptors[1])
-                    d.set_atom_descriptors((scaled_reac, scaled_prod))
+                    scaled_list = [self._scaler.transform(d.raw_atom_descriptors[i])
+                                   for i in range(len(d.raw_atom_descriptors))]
+                    d.set_atom_descriptors(tuple(scaled_list))
             else:
                 for d in self._data:
                     d.set_atom_descriptors(self._scaler.transform(d.raw_atom_descriptors))
         elif scale_atom_descriptors and not self._data[0].atom_features is None:
             if isinstance(self._data[0].raw_atom_features, Tuple):
                 for d in self._data:
-                    scaled_reac = self._scaler.transform(d.raw_atom_features[0])
-                    scaled_prod = self._scaler.transform(d.raw_atom_features[1])
-                    d.set_atom_features((scaled_reac, scaled_prod))
+                    scaled_list = [self._scaler.transform(d.raw_atom_features[i])
+                                   for i in range(len(d.raw_atom_features))]
+                    d.set_atom_features(tuple(scaled_list))
             else:
                 for d in self._data:
                     d.set_atom_features(self._scaler.transform(d.raw_atom_features))
         elif scale_bond_features:
             if isinstance(self._data[0].raw_bond_features, Tuple):
                 for d in self._data:
-                    scaled_reac = self._scaler.transform(d.raw_bond_features[0])
-                    scaled_prod = self._scaler.transform(d.raw_bond_features[1])
-                    d.set_bond_features((scaled_reac, scaled_prod))
+                    scaled_list = [self._scaler.transform(d.raw_bond_features[i])
+                                   for i in range(len(d.raw_bond_features))]
+                    d.set_bond_features(tuple(scaled_list))
             else:
                 for d in self._data:
                     d.set_bond_features(self._scaler.transform(d.raw_bond_features))

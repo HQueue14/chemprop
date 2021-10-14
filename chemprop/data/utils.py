@@ -176,8 +176,10 @@ def get_data(path: str,
              bond_features_path: str = None,
              atom_descriptors_reac_path: str = None,
              atom_descriptors_prod_path: str = None,
+             atom_descriptors_solvent_path: str = None,
              bond_features_reac_path: str = None,
              bond_features_prod_path: str = None,
+             bond_features_solvent_path: str = None,
              max_data_size: int = None,
              store_row: bool = False,
              logger: Logger = None,
@@ -202,8 +204,10 @@ def get_data(path: str,
     :param bond_features_path: The path to the file containing the custom bond features.
     :param atom_descriptors_reac_path: The path to the file containing the custom atom descriptors for reactants.
     :param atom_descriptors_prod_path: The path to the file containing the custom atom descriptors for products.
+    :param atom_descriptors_solvent_path: The path to the file containing the custom atom descriptors for solvents.
     :param bond_features_reac_path: The path to the file containing the custom bond features for reactants.
     :param bond_features_prod_path: The path to the file containing the custom bond features for products.
+    :param bond_features_solvent_path: The path to the file containing the custom bond features for solvents.
     :param max_data_size: The maximum number of data points to load.
     :param logger: A logger for recording output.
     :param store_row: Whether to store the raw CSV row in each :class:`~chemprop.data.data.MoleculeDatapoint`.
@@ -230,10 +234,14 @@ def get_data(path: str,
             else args.atom_descriptors_reac_path
         atom_descriptors_prod_path = atom_descriptors_prod_path if atom_descriptors_prod_path is not None \
             else args.atom_descriptors_prod_path
+        atom_descriptors_solvent_path = atom_descriptors_solvent_path if atom_descriptors_solvent_path is not None \
+            else args.atom_descriptors_solvent_path
         bond_features_reac_path = bond_features_reac_path if bond_features_reac_path is not None \
             else args.bond_features_reac_path
         bond_features_prod_path = bond_features_prod_path if bond_features_prod_path is not None \
             else args.bond_features_prod_path
+        bond_features_solvent_path = bond_features_solvent_path if bond_features_solvent_path is not None \
+            else args.bond_features_solvent_path
         max_data_size = max_data_size if max_data_size is not None else args.max_data_size
 
     if not isinstance(smiles_columns, list):
@@ -297,13 +305,33 @@ def get_data(path: str,
         atom_features = None
         atom_descriptors = None
         if args is not None and args.atom_descriptors is not None:
-            if args.reaction or args.reaction_solvent:
+            if args.reaction or all([args.reaction_solvent, atom_descriptors_solvent_path is None]):
                 try:
                     descrip_reac = load_valid_atom_or_bond_features(atom_descriptors_reac_path,
                                                                     [x[0].split('>>')[0] for x in all_smiles])
                     descrip_prod = load_valid_atom_or_bond_features(atom_descriptors_prod_path,
                                                                     [x[0].split('>>')[1] for x in all_smiles])
                     descriptors = [(descrip_reac[i], descrip_prod[i]) for i in range(len(all_smiles))]
+                except Exception as e:
+                    raise ValueError(f'Failed to load or validate custom atomic descriptors or features: {e}')
+            elif args.reaction_solvent and atom_descriptors_solvent_path is not None:
+                try:
+                    if '>>' in all_smiles[0][0]:
+                        rxn_smi_idx = 0
+                        solv_smi_idx = 1
+                    elif '>>' in all_smiles[0][1]:
+                        rxn_smi_idx = 1
+                        solv_smi_idx = 0
+                    else:
+                        raise ValueError(f'Reaction SMILES is not properly provided.')
+                    descrip_reac = load_valid_atom_or_bond_features(
+                        atom_descriptors_reac_path, [x[rxn_smi_idx].split('>>')[0] for x in all_smiles])
+                    descrip_prod = load_valid_atom_or_bond_features(
+                        atom_descriptors_prod_path, [x[rxn_smi_idx].split('>>')[1] for x in all_smiles])
+                    descrip_solvent = load_valid_atom_or_bond_features(
+                        atom_descriptors_solvent_path, [x[solv_smi_idx] for x in all_smiles])
+                    descriptors = [(descrip_reac[i], descrip_prod[i], descrip_solvent[i])
+                                   for i in range(len(all_smiles))]
                 except Exception as e:
                     raise ValueError(f'Failed to load or validate custom atomic descriptors or features: {e}')
             else:
@@ -323,13 +351,33 @@ def get_data(path: str,
                 bond_features = load_valid_atom_or_bond_features(bond_features_path, [x[0] for x in all_smiles])
             except Exception as e:
                 raise ValueError(f'Failed to load or validate custom bond features: {e}')
-        if args is not None and all([bond_features_reac_path, bond_features_prod_path]):
+        elif args is not None and all([bond_features_reac_path, bond_features_prod_path, bond_features_solvent_path is None]):
             try:
                 bond_features_reac = load_valid_atom_or_bond_features(bond_features_reac_path,
                                                                   [x[0].split('>>')[0] for x in all_smiles])
                 bond_features_prod = load_valid_atom_or_bond_features(bond_features_prod_path,
                                                                   [x[0].split('>>')[1] for x in all_smiles])
                 bond_features = [(bond_features_reac[i], bond_features_prod[i]) for i in range(len(all_smiles))]
+            except Exception as e:
+                raise ValueError(f'Failed to load or validate custom bond features: {e}')
+        elif args is not None and all([bond_features_reac_path, bond_features_prod_path, bond_features_solvent_path]):
+            try:
+                if '>>' in all_smiles[0][0]:
+                    rxn_smi_idx = 0
+                    solv_smi_idx = 1
+                elif '>>' in all_smiles[0][1]:
+                    rxn_smi_idx = 1
+                    solv_smi_idx = 0
+                else:
+                    raise ValueError(f'Reaction SMILES is not properly provided.')
+                bond_features_reac = load_valid_atom_or_bond_features(
+                    bond_features_reac_path, [x[rxn_smi_idx].split('>>')[0] for x in all_smiles])
+                bond_features_prod = load_valid_atom_or_bond_features(
+                    bond_features_prod_path, [x[rxn_smi_idx].split('>>')[1] for x in all_smiles])
+                bond_features_solvent = load_valid_atom_or_bond_features(
+                    bond_features_solvent_path, [x[solv_smi_idx] for x in all_smiles])
+                bond_features = [(bond_features_reac[i], bond_features_prod[i], bond_features_solvent[i])
+                                 for i in range(len(all_smiles))]
             except Exception as e:
                 raise ValueError(f'Failed to load or validate custom bond features: {e}')
 

@@ -53,8 +53,10 @@ def run_training(args: TrainArgs,
                              bond_features_path=args.separate_test_bond_features_path,
                              atom_descriptors_reac_path=args.separate_test_atom_descriptors_reac_path,
                              atom_descriptors_prod_path=args.separate_test_atom_descriptors_prod_path,
+                             atom_descriptors_solvent_path=args.separate_test_atom_descriptors_solvent_path,
                              bond_features_reac_path=args.separate_test_bond_features_reac_path,
                              bond_features_prod_path=args.separate_test_bond_features_prod_path,
+                             bond_features_solvent_path=args.separate_test_bond_features_solvent_path,
                              smiles_columns=args.smiles_columns,
                              logger=logger)
     if args.separate_val_path:
@@ -65,8 +67,10 @@ def run_training(args: TrainArgs,
                             bond_features_path=args.separate_val_bond_features_path,
                             atom_descriptors_reac_path=args.separate_val_atom_descriptors_reac_path,
                             atom_descriptors_prod_path=args.separate_val_atom_descriptors_prod_path,
+                            atom_descriptors_solvent_path=args.separate_val_atom_descriptors_solvent_path,
                             bond_features_reac_path=args.separate_val_bond_features_reac_path,
                             bond_features_prod_path=args.separate_val_bond_features_prod_path,
+                            bond_features_solvent_path=args.separate_val_bond_features_solvent_path,
                             smiles_columns = args.smiles_columns,
                             logger=logger)
 

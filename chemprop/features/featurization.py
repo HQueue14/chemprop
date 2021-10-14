@@ -46,20 +46,23 @@ EXPLICIT_H = False
 EXPLICIT_H_SOLVENT = False
 REACTION = False
 REACTION_SOLVENT = False
+SOLVENT_EXTRA_ATOM_FEATURE = False
+SOLVENT_EXTRA_BOND_FEATURE = False
 
 periodic_table = Chem.GetPeriodicTable()
 
-def get_atom_fdim(overwrite_default_atom: bool = False, is_reaction: bool = False) -> int:
+def get_atom_fdim(overwrite_default_atom: bool = False, is_reaction: bool = False, is_solvent: bool = False) -> int:
     """
     Gets the dimensionality of the atom feature vector.
 
     :param overwrite_default_atom: Whether to overwrite the default atom descriptors
     :param is_reaction: Whether to add :code:`EXTRA_ATOM_FDIM` for reaction input when :code:`REACTION_MODE` is not None
+    :param is_solvent: Whether to add :code:`EXTRA_ATOM_FDIM` for solvent input when :code:`REACTION_MODE` is not None
     :return: The dimensionality of the atom feature vector.
     """
     if REACTION_MODE:
         return (not overwrite_default_atom) * ATOM_FDIM + is_reaction * EXTRA_ATOM_FDIM * 2 \
-               + is_reaction * EXTRA_ATOM_FDIM_REACTION
+               + is_reaction * EXTRA_ATOM_FDIM_REACTION + is_solvent * EXTRA_ATOM_FDIM * SOLVENT_EXTRA_ATOM_FEATURE
     else:
         return (not overwrite_default_atom) * ATOM_FDIM + EXTRA_ATOM_FDIM
 
@@ -174,7 +177,8 @@ def set_reaction(reaction: bool, mode: str) -> None:
         REACTION_MODE = mode
 
 
-def set_reaction_solvent(reaction_solvent: bool, mode: str) -> None:
+def set_reaction_solvent(reaction_solvent: bool, mode: str,
+                         solvent_atom_descriptor: bool, solvent_bond_feature: bool) -> None:
     """
     Sets whether to use both a reaction and a solvent molecule as input and adapts feature dimensions.
 
@@ -188,10 +192,14 @@ def set_reaction_solvent(reaction_solvent: bool, mode: str) -> None:
         global REACTION_MODE
         global EXTRA_BOND_FDIM_REACTION
         global EXTRA_ATOM_FDIM_REACTION
+        global SOLVENT_EXTRA_ATOM_FEATURE
+        global SOLVENT_EXTRA_BOND_FEATURE
 
         EXTRA_ATOM_FDIM_REACTION = ATOM_FDIM - MAX_ATOMIC_NUM - 1
         EXTRA_BOND_FDIM_REACTION = BOND_FDIM
         REACTION_MODE = mode
+        SOLVENT_EXTRA_ATOM_FEATURE = solvent_atom_descriptor
+        SOLVENT_EXTRA_BOND_FEATURE = solvent_bond_feature
 
 
 def is_solvent(mol: Union[str, Chem.Mol, Tuple[Chem.Mol, Chem.Mol]]) -> bool:
@@ -256,7 +264,8 @@ def set_extra_atom_fdim(extra):
 def get_bond_fdim(atom_messages: bool = False,
                   overwrite_default_bond: bool = False,
                   overwrite_default_atom: bool = False,
-                  is_reaction: bool = False) -> int:
+                  is_reaction: bool = False,
+                  is_solvent: bool = False) -> int:
     """
     Gets the dimensionality of the bond feature vector.
 
@@ -266,16 +275,19 @@ def get_bond_fdim(atom_messages: bool = False,
     :param overwrite_default_bond: Whether to overwrite the default bond descriptors
     :param overwrite_default_atom: Whether to overwrite the default atom descriptors
     :param is_reaction: Whether to add :code:`EXTRA_BOND_FDIM` for reaction input when :code:`REACTION_MODE:` is not None
+    :param is_solvent: Whether to add :code:`EXTRA_BOND_FDIM` for solvent input when :code:`REACTION_MODE:` is not None
     :return: The dimensionality of the bond feature vector.
     """
 
     if REACTION_MODE:
         return (not overwrite_default_bond) * BOND_FDIM + is_reaction * EXTRA_BOND_FDIM * 2 \
-               + is_reaction * EXTRA_BOND_FDIM_REACTION + \
-               (not atom_messages) * get_atom_fdim(overwrite_default_atom=overwrite_default_atom, is_reaction=is_reaction)
+               + is_reaction * EXTRA_BOND_FDIM_REACTION + is_solvent * EXTRA_BOND_FDIM * SOLVENT_EXTRA_BOND_FEATURE + \
+               (not atom_messages) * get_atom_fdim(overwrite_default_atom=overwrite_default_atom,
+                                                   is_reaction=is_reaction, is_solvent=is_solvent)
     else:
         return (not overwrite_default_bond) * BOND_FDIM + EXTRA_BOND_FDIM + \
-               (not atom_messages) * get_atom_fdim(overwrite_default_atom=overwrite_default_atom, is_reaction=is_reaction)
+               (not atom_messages) * get_atom_fdim(overwrite_default_atom=overwrite_default_atom,
+                                                   is_reaction=is_reaction, is_solvent=is_solvent)
 
 
 def set_extra_bond_fdim(extra):
@@ -565,6 +577,16 @@ class MolGraph:
         self.overwrite_default_bond_features = overwrite_default_bond_features
 
         if not self.is_reaction:
+
+            if self.is_solvent and len(atom_features_extra) == 3:
+                atom_features_extra = atom_features_extra[2]
+            else:
+                atom_features_extra = None
+            if self.is_solvent and len(bond_features_extra) == 3:
+                bond_features_extra = bond_features_extra[2]
+            else:
+                bond_features_extra = None
+
             # Get atom features
             self.f_atoms = [atom_features(atom) for atom in mol.GetAtoms()]
             if atom_features_extra is not None:
@@ -763,11 +785,12 @@ class BatchMolGraph:
         self.overwrite_default_atom_features = mol_graphs[0].overwrite_default_atom_features
         self.overwrite_default_bond_features = mol_graphs[0].overwrite_default_bond_features
         self.is_reaction = mol_graphs[0].is_reaction
+        self.is_solvent = mol_graphs[0].is_solvent
         self.atom_fdim = get_atom_fdim(overwrite_default_atom=self.overwrite_default_atom_features,
-                                       is_reaction=self.is_reaction)
+                                       is_reaction=self.is_reaction, is_solvent=self.is_solvent)
         self.bond_fdim = get_bond_fdim(overwrite_default_bond=self.overwrite_default_bond_features,
                                        overwrite_default_atom=self.overwrite_default_atom_features,
-                                       is_reaction=self.is_reaction)
+                                       is_reaction=self.is_reaction, is_solvent=self.is_solvent)
 
         # Start n_atoms and n_bonds at 1 b/c zero padding
         self.n_atoms = 1  # number of atoms (start at 1 b/c need index 0 as padding)
