@@ -30,8 +30,10 @@ THREE_D_DISTANCE_STEP = 1
 THREE_D_DISTANCE_BINS = list(range(0, THREE_D_DISTANCE_MAX + 1, THREE_D_DISTANCE_STEP))
 
 EXTRA_ATOM_FDIM = 0
+EXTRA_ATOM_FDIM_REACTION = 0
 BOND_FDIM = 14
 EXTRA_BOND_FDIM = 0
+EXTRA_BOND_FDIM_REACTION = 0
 ATOM_FEATURE_RADICAL_ELEC = False
 ATOM_FEATURE_RING_SIZE = False
 ATOM_FEATURE_LONE_PAIR = False
@@ -56,7 +58,8 @@ def get_atom_fdim(overwrite_default_atom: bool = False, is_reaction: bool = Fals
     :return: The dimensionality of the atom feature vector.
     """
     if REACTION_MODE:
-        return (not overwrite_default_atom) * ATOM_FDIM + is_reaction * EXTRA_ATOM_FDIM
+        return (not overwrite_default_atom) * ATOM_FDIM + is_reaction * EXTRA_ATOM_FDIM * 2 \
+               + is_reaction * EXTRA_ATOM_FDIM_REACTION
     else:
         return (not overwrite_default_atom) * ATOM_FDIM + EXTRA_ATOM_FDIM
 
@@ -163,11 +166,11 @@ def set_reaction(reaction: bool, mode: str) -> None:
     REACTION = reaction
     if reaction:
         global REACTION_MODE
-        global EXTRA_BOND_FDIM
-        global EXTRA_ATOM_FDIM
+        global EXTRA_BOND_FDIM_REACTION
+        global EXTRA_ATOM_FDIM_REACTION
     
-        EXTRA_ATOM_FDIM = ATOM_FDIM - MAX_ATOMIC_NUM -1
-        EXTRA_BOND_FDIM = BOND_FDIM
+        EXTRA_ATOM_FDIM_REACTION = ATOM_FDIM - MAX_ATOMIC_NUM -1
+        EXTRA_BOND_FDIM_REACTION = BOND_FDIM
         REACTION_MODE = mode
 
 
@@ -183,11 +186,11 @@ def set_reaction_solvent(reaction_solvent: bool, mode: str) -> None:
     REACTION_SOLVENT = reaction_solvent
     if reaction_solvent:
         global REACTION_MODE
-        global EXTRA_BOND_FDIM
-        global EXTRA_ATOM_FDIM
+        global EXTRA_BOND_FDIM_REACTION
+        global EXTRA_ATOM_FDIM_REACTION
 
-        EXTRA_ATOM_FDIM = ATOM_FDIM - MAX_ATOMIC_NUM - 1
-        EXTRA_BOND_FDIM = BOND_FDIM
+        EXTRA_ATOM_FDIM_REACTION = ATOM_FDIM - MAX_ATOMIC_NUM - 1
+        EXTRA_BOND_FDIM_REACTION = BOND_FDIM
         REACTION_MODE = mode
 
 
@@ -267,7 +270,8 @@ def get_bond_fdim(atom_messages: bool = False,
     """
 
     if REACTION_MODE:
-        return (not overwrite_default_bond) * BOND_FDIM + is_reaction * EXTRA_BOND_FDIM + \
+        return (not overwrite_default_bond) * BOND_FDIM + is_reaction * EXTRA_BOND_FDIM * 2 \
+               + is_reaction * EXTRA_BOND_FDIM_REACTION + \
                (not atom_messages) * get_atom_fdim(overwrite_default_atom=overwrite_default_atom, is_reaction=is_reaction)
     else:
         return (not overwrite_default_bond) * BOND_FDIM + EXTRA_BOND_FDIM + \
@@ -527,8 +531,8 @@ class MolGraph:
     """
 
     def __init__(self, mol: Union[str, Chem.Mol, Tuple[Chem.Mol, Chem.Mol]],
-                 atom_features_extra: np.ndarray = None,
-                 bond_features_extra: np.ndarray = None,
+                 atom_features_extra: Union [np.ndarray, Tuple[np.ndarray, np.ndarray]] = None,
+                 bond_features_extra: Union [np.ndarray, Tuple[np.ndarray, np.ndarray]] = None,
                  overwrite_default_atom_features: bool = False,
                  overwrite_default_bond_features: bool = False):
         """
@@ -613,20 +617,49 @@ class MolGraph:
                                  f'the extra bond features')
 
         else: # Reaction mode
-            if atom_features_extra is not None:
-                raise NotImplementedError('Extra atom features are currently not supported for reactions')
-            if bond_features_extra is not None:
-                raise NotImplementedError('Extra bond features are currently not supported for reactions')
-
             mol_reac = mol[0]
             mol_prod = mol[1]
             ri2pi, pio, rio = map_reac_to_prod(mol_reac, mol_prod)
-           
+            n_atoms_reac = mol_reac.GetNumAtoms()
+            n_atoms_prod = mol_prod.GetNumAtoms()
+
             # Get atom features
             f_atoms_reac = [atom_features(atom) for atom in mol_reac.GetAtoms()] + [atom_features(None) for index in pio]
             f_atoms_prod = [atom_features(mol_prod.GetAtomWithIdx(ri2pi[atom.GetIdx()])) if atom.GetIdx() not in rio else
                             atom_features(None) for atom in mol_reac.GetAtoms()] + [atom_features(mol_prod.GetAtomWithIdx(index)) for index in pio]
-            
+
+            # Add extra atom features to the reactant and product
+            if atom_features_extra is not None:
+                atom_features_extra_reac = atom_features_extra[0]
+                atom_features_extra_prod = atom_features_extra[1]
+
+                # Check whether the number of atoms and the size of extra atom features match
+                if atom_features_extra_reac.shape[0] != n_atoms_reac:
+                    raise ValueError(f'The number of atoms in {Chem.MolToSmiles(mol_reac)} is different from the '
+                                     f'length of the extra atom features')
+                if atom_features_extra_prod.shape[0] != n_atoms_prod:
+                    raise ValueError(f'The number of atoms in {Chem.MolToSmiles(mol_prod)} is different from the '
+                                     f'length of the extra atom features')
+
+                if overwrite_default_atom_features:
+                    raise ValueError("Overwrite default atom feature option is currently not available for reaction")
+                else:
+                    # add extra atom features to the reactant
+                    for atom in mol_reac.GetAtoms():
+                        f_atoms_reac[atom.GetIdx()] += list(atom_features_extra_reac[atom.GetIdx()])
+                    for i in range(len(pio)):
+                        index = len(f_atoms_reac) - len(pio) + i
+                        f_atoms_reac[index] += [0] * atom_features_extra_reac.shape[1]
+                    # add extra atom features to the product
+                    for atom in mol_reac.GetAtoms():
+                        if atom.GetIdx() not in rio:
+                            f_atoms_prod[atom.GetIdx()] += list(atom_features_extra_prod[ri2pi[atom.GetIdx()]])
+                        else:
+                            f_atoms_prod[atom.GetIdx()] += [0] * atom_features_extra_prod.shape[1]
+                    for i in range(len(pio)):
+                        index = len(f_atoms_prod) - len(pio) + i
+                        f_atoms_prod[index] += list(atom_features_extra_prod[pio[i]])
+
             if self.reaction_mode in ['reac_diff','prod_diff']:
                 f_atoms_diff = [list(map(lambda x, y: x - y, ii, jj)) for ii, jj in zip(f_atoms_prod, f_atoms_reac)]
             if self.reaction_mode == 'reac_prod':
@@ -636,7 +669,6 @@ class MolGraph:
             elif self.reaction_mode == 'prod_diff':
                 self.f_atoms = [x+y[MAX_ATOMIC_NUM+1:] for x,y in zip(f_atoms_prod, f_atoms_diff)]
             self.n_atoms = len(self.f_atoms)
-            n_atoms_reac = mol_reac.GetNumAtoms()
 
             # Initialize atom to bond mapping for each atom
             for _ in range(self.n_atoms):
@@ -666,6 +698,27 @@ class MolGraph:
 
                     f_bond_reac = bond_features(bond_reac)
                     f_bond_prod = bond_features(bond_prod)
+
+                    # Add extra bond features to the reactant and product
+                    if bond_features_extra is not None:
+                        bond_features_extra_reac = bond_features_extra[0]
+                        bond_features_extra_prod = bond_features_extra[1]
+                        if overwrite_default_bond_features:
+                            raise ValueError("Overwrite default bond feature option is currently not available for reaction")
+                        else:
+                            # add extra bond features to the reactant
+                            if bond_reac is not None:
+                                bond_reac_index = bond_reac.GetIdx()
+                                f_bond_reac += list(bond_features_extra_reac[bond_reac_index])
+                            else:
+                                f_bond_reac += [0] * bond_features_extra_reac.shape[1]
+                            # add extra bond features to the product
+                            if bond_prod is not None:
+                                bond_prod_index = bond_prod.GetIdx()
+                                f_bond_prod += list(bond_features_extra_prod[bond_prod_index])
+                            else:
+                                f_bond_prod += [0] * bond_features_extra_prod.shape[1]
+
                     if self.reaction_mode in ['reac_diff', 'prod_diff']:
                         f_bond_diff = [y - x for x, y in zip(f_bond_reac, f_bond_prod)]
                     if self.reaction_mode == 'reac_prod':

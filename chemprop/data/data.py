@@ -128,15 +128,28 @@ class MoleculeDatapoint:
 
         # Fix nans in atom_descriptors
         if self.atom_descriptors is not None:
-            self.atom_descriptors = np.where(np.isnan(self.atom_descriptors), replace_token, self.atom_descriptors)
+            if isinstance(self.atom_descriptors, Tuple):
+                self.atom_descriptors = (
+                    np.where(np.isnan(self.atom_descriptors[0]), replace_token, self.atom_descriptors[0]),
+                    np.where(np.isnan(self.atom_descriptors[1]), replace_token, self.atom_descriptors[1]))
+            else:
+                self.atom_descriptors = np.where(np.isnan(self.atom_descriptors), replace_token, self.atom_descriptors)
 
         # Fix nans in atom_features
         if self.atom_features is not None:
-            self.atom_features = np.where(np.isnan(self.atom_features), replace_token, self.atom_features)
+            if isinstance(self.atom_features, Tuple):
+                self.atom_features = (np.where(np.isnan(self.atom_features[0]), replace_token, self.atom_features[0]),
+                                      np.where(np.isnan(self.atom_features[1]), replace_token, self.atom_features[1]))
+            else:
+                self.atom_features = np.where(np.isnan(self.atom_features), replace_token, self.atom_features)
 
         # Fix nans in bond_descriptors
         if self.bond_features is not None:
-            self.bond_features = np.where(np.isnan(self.bond_features), replace_token, self.bond_features)
+            if isinstance(self.bond_features, Tuple):
+                self.bond_features = (np.where(np.isnan(self.bond_features[0]), replace_token, self.bond_features[0]),
+                                      np.where(np.isnan(self.bond_features[1]), replace_token, self.bond_features[1]))
+            else:
+                self.bond_features = np.where(np.isnan(self.bond_features), replace_token, self.bond_features)
 
         # Save a copy of the raw features and targets to enable different scaling later on
         self.raw_features, self.raw_targets = self.features, self.targets
@@ -393,8 +406,13 @@ class MoleculeDataset(Dataset):
 
         :return: The size of the additional atom descriptor vector.
         """
-        return len(self._data[0].atom_descriptors[0]) \
-            if len(self._data) > 0 and self._data[0].atom_descriptors is not None else None
+        if len(self._data) > 0 and self._data[0].atom_descriptors is not None:
+            if isinstance(self._data[0].atom_descriptors, Tuple):
+                return len(self._data[0].atom_descriptors[0][0])
+            else:
+                return len(self._data[0].atom_descriptors[0])
+        else:
+            return None
 
     def atom_features_size(self) -> int:
         """
@@ -402,8 +420,13 @@ class MoleculeDataset(Dataset):
 
         :return: The size of the additional atom feature vector.
         """
-        return len(self._data[0].atom_features[0]) \
-            if len(self._data) > 0 and self._data[0].atom_features is not None else None
+        if len(self._data) > 0 and self._data[0].atom_features is not None:
+            if isinstance(self._data[0].atom_features, Tuple):
+                return len(self._data[0].atom_features[0][0])
+            else:
+                return len(self._data[0].atom_features[0])
+        else:
+            return None
 
     def bond_features_size(self) -> int:
         """
@@ -411,8 +434,13 @@ class MoleculeDataset(Dataset):
 
         :return: The size of the additional bond feature vector.
         """
-        return len(self._data[0].bond_features[0]) \
-            if len(self._data) > 0 and self._data[0].bond_features is not None else None
+        if len(self._data) > 0 and self._data[0].bond_features is not None:
+            if isinstance(self._data[0].bond_features, Tuple):
+                return len(self._data[0].bond_features[0][0])
+            else:
+                return len(self._data[0].bond_features[0])
+        else:
+            return None
 
     def normalize_features(self, scaler: StandardScaler = None, replace_nan_token: int = 0,
                            scale_atom_descriptors: bool = False, scale_bond_features: bool = False) -> StandardScaler:
@@ -444,26 +472,60 @@ class MoleculeDataset(Dataset):
             self._scaler = scaler
 
         elif self._scaler is None:
+            # for reac, prod, make sure to vstack both
             if scale_atom_descriptors and not self._data[0].atom_descriptors is None:
-                features = np.vstack([d.raw_atom_descriptors for d in self._data])
+                if isinstance(self._data[0].raw_atom_descriptors, Tuple):
+                    features_reac = np.vstack([d.raw_atom_descriptors[0] for d in self._data])
+                    features_prod = np.vstack([d.raw_atom_descriptors[1] for d in self._data])
+                    features = np.concatenate((features_reac, features_prod), axis=0)
+                else:
+                    features = np.vstack([d.raw_atom_descriptors for d in self._data])
             elif scale_atom_descriptors and not self._data[0].atom_features is None:
-                features = np.vstack([d.raw_atom_features for d in self._data])
+                if isinstance(self._data[0].raw_atom_features, Tuple):
+                    features_reac = np.vstack([d.raw_atom_features[0] for d in self._data])
+                    features_prod = np.vstack([d.raw_atom_features[1] for d in self._data])
+                    features = np.concatenate((features_reac, features_prod), axis=0)
+                else:
+                    features = np.vstack([d.raw_atom_features for d in self._data])
             elif scale_bond_features:
-                features = np.vstack([d.raw_bond_features for d in self._data])
+                if isinstance(self._data[0].raw_bond_features, Tuple):
+                    features_reac = np.vstack([d.raw_bond_features[0] for d in self._data])
+                    features_prod = np.vstack([d.raw_bond_features[1] for d in self._data])
+                    features = np.concatenate((features_reac, features_prod), axis=0)
+                else:
+                    features = np.vstack([d.raw_bond_features for d in self._data])
             else:
                 features = np.vstack([d.raw_features for d in self._data])
             self._scaler = StandardScaler(replace_nan_token=replace_nan_token)
             self._scaler.fit(features)
 
         if scale_atom_descriptors and not self._data[0].atom_descriptors is None:
-            for d in self._data:
-                d.set_atom_descriptors(self._scaler.transform(d.raw_atom_descriptors))
+            if isinstance(self._data[0].raw_atom_descriptors, Tuple):
+                for d in self._data:
+                    scaled_reac = self._scaler.transform(d.raw_atom_descriptors[0])
+                    scaled_prod = self._scaler.transform(d.raw_atom_descriptors[1])
+                    d.set_atom_descriptors((scaled_reac, scaled_prod))
+            else:
+                for d in self._data:
+                    d.set_atom_descriptors(self._scaler.transform(d.raw_atom_descriptors))
         elif scale_atom_descriptors and not self._data[0].atom_features is None:
-            for d in self._data:
-                d.set_atom_features(self._scaler.transform(d.raw_atom_features))
+            if isinstance(self._data[0].raw_atom_features, Tuple):
+                for d in self._data:
+                    scaled_reac = self._scaler.transform(d.raw_atom_features[0])
+                    scaled_prod = self._scaler.transform(d.raw_atom_features[1])
+                    d.set_atom_features((scaled_reac, scaled_prod))
+            else:
+                for d in self._data:
+                    d.set_atom_features(self._scaler.transform(d.raw_atom_features))
         elif scale_bond_features:
-            for d in self._data:
-                d.set_bond_features(self._scaler.transform(d.raw_bond_features))
+            if isinstance(self._data[0].raw_bond_features, Tuple):
+                for d in self._data:
+                    scaled_reac = self._scaler.transform(d.raw_bond_features[0])
+                    scaled_prod = self._scaler.transform(d.raw_bond_features[1])
+                    d.set_bond_features((scaled_reac, scaled_prod))
+            else:
+                for d in self._data:
+                    d.set_bond_features(self._scaler.transform(d.raw_bond_features))
         else:
             for d in self._data:
                 d.set_features(self._scaler.transform(d.raw_features.reshape(1, -1))[0])

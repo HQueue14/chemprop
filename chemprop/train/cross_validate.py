@@ -95,6 +95,9 @@ def cross_validate(args: TrainArgs,
     if args.bond_features_path is not None:
         args.bond_features_size = data.bond_features_size()
         set_extra_bond_fdim(args.bond_features_size)
+    elif all([args.bond_features_reac_path, args.bond_features_prod_path]):
+        args.bond_features_size = data.bond_features_size()
+        set_extra_bond_fdim(args.bond_features_size)
 
     debug(f'Number of tasks = {args.num_tasks}')
 

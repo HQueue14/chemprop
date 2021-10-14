@@ -100,6 +100,14 @@ class CommonArgs(Tap):
     """Path to the extra atom descriptors."""
     bond_features_path: str = None
     """Path to the extra bond descriptors that will be used as bond features to featurize a given molecule."""
+    atom_descriptors_reac_path: str = None
+    """Path to the extra atom descriptors for reactants."""
+    atom_descriptors_prod_path: str = None
+    """Path to the extra atom descriptors for products."""
+    bond_features_reac_path: str = None
+    """Path to the extra bond descriptors for reactants that will be used as bond features to featurize a given molecule."""
+    bond_features_prod_path: str = None
+    """Path to the extra bond descriptors for products that will be used as bond features to featurize a given molecule."""
     no_cache_mol: bool = False
     """
     Whether to not cache the RDKit molecule for each SMILES string to reduce memory usage (cached by default).
@@ -192,19 +200,47 @@ class CommonArgs(Tap):
         if self.features_generator is not None and 'rdkit_2d_normalized' in self.features_generator and self.features_scaling:
             raise ValueError('When using rdkit_2d_normalized features, --no_features_scaling must be specified.')
 
-        # Validate atom descriptors
-        if (self.atom_descriptors is None) != (self.atom_descriptors_path is None):
-            raise ValueError('If atom_descriptors is specified, then an atom_descriptors_path must be provided '
-                             'and vice versa.')
+        # Validate atom descriptors for reaction and reaction_solvent
+        if self.reaction or self.reaction_solvent:
+            if self.atom_descriptors_path is not None:
+                raise ValueError('Two separate atom descriptor paths (i.e. atom_descriptors_reac_path for reactants, '
+                                 'atom_descriptors_prod_path for products) must be provided in order for extra '
+                                 'atom descriptors to be used for the reaction or reaction_solvent input')
 
-        if self.atom_descriptors is not None and self.number_of_molecules > 1:
-            raise NotImplementedError('Atom descriptors are currently only supported with one molecule '
-                                      'per input (i.e., number_of_molecules = 1).')
+            if self.bond_features_path is not None:
+                raise ValueError('Two separate bond feature paths (i.e. bond_features_reac_path for reactants, '
+                                 'bond_features_prod_path for products) must be provided in order for extra '
+                                 'bond features to be used for the reaction or reaction_solvent input')
 
-        # Validate bond descriptors
-        if self.bond_features_path is not None and self.number_of_molecules > 1:
-            raise NotImplementedError('Bond descriptors are currently only supported with one molecule '
-                                      'per input (i.e., number_of_molecules = 1).')
+            if self.atom_descriptors is None and any([self.atom_descriptors_reac_path, self.atom_descriptors_prod_path]):
+                    raise ValueError('If atom_descriptors_reac_path or/and atom_descriptors_prod_path are specified, '
+                                     'atom_descriptors must be provided in order for extra atom descriptors to be used'
+                                     ' for the reaction or reaction_solvent input and vice versa.')
+
+            if self.atom_descriptors is not None and not all([self.atom_descriptors_reac_path, self.atom_descriptors_prod_path]):
+                    raise ValueError('If atom_descriptors is specified, both atom_descriptors_reac_path and '
+                                     'atom_descriptors_prod_path must be provided in order for extra atom descriptors '
+                                     'to be used for the reaction or reaction_solvent input and vice versa.')
+
+            if any([self.bond_features_reac_path, self.bond_features_prod_path]) \
+                    and not all([self.bond_features_reac_path, self.bond_features_prod_path]):
+                    raise ValueError('Both bond_features_reac_path and bond_features_prod_path must be provided in order'
+                                     ' for extra bond features to be used for the reaction or reaction_solvent input.')
+
+        # Validate atom descriptors for other cases
+        else:
+            if (self.atom_descriptors is None) != (self.atom_descriptors_path is None):
+                raise ValueError('If atom_descriptors is specified, then an atom_descriptors_path must be provided '
+                                 'and vice versa.')
+
+            if self.atom_descriptors is not None and self.number_of_molecules > 1:
+                raise NotImplementedError('Atom descriptors are currently only supported with one molecule '
+                                          'per input (i.e., number_of_molecules = 1).')
+
+            # Validate bond descriptors
+            if self.bond_features_path is not None and self.number_of_molecules > 1:
+                raise NotImplementedError('Bond descriptors are currently only supported with one molecule '
+                                          'per input (i.e., number_of_molecules = 1).')
 
         set_cache_mol(not self.no_cache_mol)
 
@@ -348,6 +384,22 @@ class TrainArgs(CommonArgs):
     """Path to file with extra atom descriptors for separate val set."""
     separate_test_bond_features_path: str = None
     """Path to file with extra atom descriptors for separate test set."""
+    separate_val_atom_descriptors_reac_path: str = None
+    """Path to file with extra atom descriptors for reactants for separate val set."""
+    separate_val_atom_descriptors_prod_path: str = None
+    """Path to file with extra atom descriptors for products for separate val set."""
+    separate_test_atom_descriptors_reac_path: str = None
+    """Path to file with extra atom descriptors for reactants for separate test set."""
+    separate_test_atom_descriptors_prod_path: str = None
+    """Path to file with extra atom descriptors for products for separate test set."""
+    separate_val_bond_features_reac_path: str = None
+    """Path to file with extra atom descriptors for reactants for separate val set."""
+    separate_val_bond_features_prod_path: str = None
+    """Path to file with extra atom descriptors for products for separate val set."""
+    separate_test_bond_features_reac_path: str = None
+    """Path to file with extra atom descriptors for reactants for separate test set."""
+    separate_test_bond_features_prod_path: str = None
+    """Path to file with extra atom descriptors for products for separate test set."""
     config_path: str = None
     """
     Path to a :code:`.json` file containing arguments. Any arguments present in the config file
@@ -611,22 +663,41 @@ class TrainArgs(CommonArgs):
         if self.test:
             self.epochs = 0
 
-        # Validate extra atom or bond features for separate validation or test set
-        if self.separate_val_path is not None and self.atom_descriptors is not None \
-                and self.separate_val_atom_descriptors_path is None:
-            raise ValueError('Atom descriptors are required for the separate validation set.')
+        # Validate extra atom or bond features for separate validation or test set for reaction or reaction_solvent
+        if self.reaction is True or self.reaction_solvent is True:
+            if self.separate_val_path is not None and self.atom_descriptors is not None \
+                and not all([self.separate_val_atom_descriptors_reac_path, self.separate_val_atom_descriptors_prod_path]):
+                raise ValueError('Atom descriptors for reactants and products are required for the separate validation set.')
 
-        if self.separate_test_path is not None and self.atom_descriptors is not None \
-                and self.separate_test_atom_descriptors_path is None:
-            raise ValueError('Atom descriptors are required for the separate test set.')
+            if self.separate_test_path is not None and self.atom_descriptors is not None \
+                and not all([self.separate_test_atom_descriptors_reac_path, self.separate_test_atom_descriptors_prod_path]):
+                raise ValueError('Atom descriptors for reactants and products are required for the separate test set.')
 
-        if self.separate_val_path is not None and self.bond_features_path is not None \
-                and self.separate_val_bond_features_path is None:
-            raise ValueError('Bond descriptors are required for the separate validation set.')
+            if self.separate_val_path is not None and any ([self.bond_features_reac_path, self.bond_features_prod_path]) \
+                    and not all([self.separate_val_bond_features_reac_path, self.separate_val_bond_features_prod_path]):
+                raise ValueError('Bond features for reactants and products are required for the separate validation set.')
 
-        if self.separate_test_path is not None and self.bond_features_path is not None \
-                and self.separate_test_bond_features_path is None:
-            raise ValueError('Bond descriptors are required for the separate test set.')
+            if self.separate_test_path is not None and any ([self.bond_features_reac_path, self.bond_features_prod_path]) \
+                    and not all([self.separate_test_bond_features_reac_path, self.separate_test_bond_features_prod_path]):
+                raise ValueError('Bond features for reactants and products are required for the separate test set.')
+
+        # Validate extra atom or bond features for separate validation or test set for other cases:
+        else:
+            if self.separate_val_path is not None and self.atom_descriptors is not None \
+                    and self.separate_val_atom_descriptors_path is None:
+                raise ValueError('Atom descriptors are required for the separate validation set.')
+
+            if self.separate_test_path is not None and self.atom_descriptors is not None \
+                    and self.separate_test_atom_descriptors_path is None:
+                raise ValueError('Atom descriptors are required for the separate test set.')
+
+            if self.separate_val_path is not None and self.bond_features_path is not None \
+                    and self.separate_val_bond_features_path is None:
+                raise ValueError('Bond descriptors are required for the separate validation set.')
+
+            if self.separate_test_path is not None and self.bond_features_path is not None \
+                    and self.separate_test_bond_features_path is None:
+                raise ValueError('Bond descriptors are required for the separate test set.')
 
         # validate extra atom descriptor options
         if self.overwrite_default_atom_features and self.atom_descriptors != 'feature':
@@ -637,11 +708,13 @@ class TrainArgs(CommonArgs):
             raise ValueError('Atom descriptor scaling is only possible if additional atom features are provided.')
 
         # validate extra bond feature options
-        if self.overwrite_default_bond_features and self.bond_features_path is None:
+        if self.overwrite_default_bond_features \
+                and not any([self.bond_features_path, self.bond_features_reac_path, self.bond_features_prod_path]):
             raise ValueError('If you want to overwrite the default bond descriptors, '
                              'a bond_descriptor_path must be provided.')
 
-        if not self.bond_feature_scaling and self.bond_features_path is None:
+        if not self.bond_feature_scaling \
+                and not any([self.bond_features_path, self.bond_features_reac_path, self.bond_features_prod_path]):
             raise ValueError('Bond descriptor scaling is only possible if additional bond features are provided.')
 
         # validate reaction solvent options
