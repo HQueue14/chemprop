@@ -578,14 +578,13 @@ class MolGraph:
 
         if not self.is_reaction:
 
-            if self.is_solvent and len(atom_features_extra) == 3:
-                atom_features_extra = atom_features_extra[2]
-            else:
-                atom_features_extra = None
-            if self.is_solvent and len(bond_features_extra) == 3:
-                bond_features_extra = bond_features_extra[2]
-            else:
-                bond_features_extra = None
+            if atom_features_extra is not None:
+                if self.is_solvent and isinstance(atom_features_extra, Tuple) and len(atom_features_extra) == 3:
+                    atom_features_extra = atom_features_extra[2]
+
+            if bond_features_extra is not None:
+                if self.is_solvent and isinstance(bond_features_extra, Tuple) and len(bond_features_extra) == 3:
+                    bond_features_extra = bond_features_extra[2]
 
             # Get atom features
             self.f_atoms = [atom_features(atom) for atom in mol.GetAtoms()]
