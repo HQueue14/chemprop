@@ -19,12 +19,13 @@ from chemprop.hyperopt_utils import merge_trials, load_trials, save_trials, get_
 
 
 SPACE = {
-    'hidden_size': hp.quniform('hidden_size', low=300, high=2400, q=100),
+    'hidden_size': hp.quniform('hidden_size', low=300, high=1200, q=100),
     'depth': hp.quniform('depth', low=2, high=6, q=1),
     'dropout': hp.quniform('dropout', low=0.0, high=0.4, q=0.05),
-    'ffn_num_layers': hp.quniform('ffn_num_layers', low=1, high=3, q=1)
+    'ffn_num_layers': hp.quniform('ffn_num_layers', low=2, high=6, q=1),
+    'ffn_hidden_size': hp.quniform('ffn_hidden_size', low=300, high=1200, q=100),
 }
-INT_KEYS = ['hidden_size', 'depth', 'ffn_num_layers']
+INT_KEYS = ['hidden_size', 'depth', 'ffn_num_layers', 'ffn_hidden_size']
 
 
 @timeit(logger_name=HYPEROPT_LOGGER_NAME)
