@@ -19,7 +19,6 @@ from chemprop.utils import create_logger, makedirs, timeit
 SPACE = {
     'hidden_size': hp.quniform('hidden_size', low=300, high=1200, q=100),
     'depth': hp.quniform('depth', low=2, high=6, q=1),
-    'dropout': hp.quniform('dropout', low=0.0, high=0.4, q=0.05),
     'ffn_num_layers': hp.quniform('ffn_num_layers', low=2, high=6, q=1),
     'ffn_hidden_size': hp.quniform('ffn_hidden_size', low=300, high=1200, q=100),
 }
