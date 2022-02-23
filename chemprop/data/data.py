@@ -10,7 +10,7 @@ from rdkit import Chem
 from .scaler import StandardScaler
 from chemprop.features import get_features_generator
 from chemprop.features import BatchMolGraph, MolGraph
-from chemprop.features import is_explicit_h, is_reaction, is_adding_hs
+from chemprop.features import is_explicit_h, is_reaction, is_adding_hs, is_mol
 from chemprop.rdkit import make_mol
 
 # Cache of graph featurizations
@@ -758,13 +758,3 @@ def make_mols(smiles: List[str], reaction_list: List[bool], keep_h_list: List[bo
             mol.append(SMILES_TO_MOL[s] if s in SMILES_TO_MOL else make_mol(s, keep_h, add_h))
     return mol
 
-def is_mol(smiles: str):
-    """
-    Checks whether a given smiles describes a molecule or a reaction.
-
-    :param smiles: SMILES string
-    :return: Boolean whether the given smiles is a molecule
-    """
-    if ">" in smiles:
-        return False
-    return True

@@ -10,10 +10,10 @@ from rdkit import Chem
 import numpy as np
 from tqdm import tqdm
 
-from .data import MoleculeDatapoint, MoleculeDataset, make_mols, is_mol
+from .data import MoleculeDatapoint, MoleculeDataset, make_mols
 from .scaffold import log_scaffold_stats, scaffold_split
 from chemprop.args import PredictArgs, TrainArgs
-from chemprop.features import load_features, load_valid_atom_or_bond_features
+from chemprop.features import load_features, load_valid_atom_or_bond_features, is_mol
 
 def preprocess_smiles_columns(path: str,
                               smiles_columns: Optional[Union[str, List[Optional[str]]]],
