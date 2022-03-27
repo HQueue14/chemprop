@@ -20,13 +20,13 @@ from chemprop.hyperopt_utils import merge_trials, load_trials, save_trials, get_
 
 SPACE = {
     'hidden_size': hp.quniform('hidden_size', low=200, high=1200, q=100),
-    'depth': hp.quniform('depth', low=2, high=7, q=1),
-    'dropout': hp.quniform('dropout', low=0.0, high=0.3, q=0.1),
-    'ffn_num_layers': hp.quniform('ffn_num_layers', low=3, high=8, q=1),
+    'depth': hp.quniform('depth', low=2, high=9, q=1),
+    # 'dropout': hp.quniform('dropout', low=0.0, high=0.3, q=0.1),
+    'ffn_num_layers': hp.quniform('ffn_num_layers', low=3, high=10, q=1),
     'ffn_hidden_size': hp.quniform('ffn_hidden_size', low=200, high=2000, q=200),
     'warmup_epochs': hp.quniform('warmup_epochs', low=0, high=6, q=1),
-    'batch_size': hp.quniform('batch_size', low=10, high=100, q=10),
-    'init_lr': hp.loguniform('init_lr', low=np.log(1e-7), high=np.log(1e-3)),
+    'batch_size': hp.quniform('batch_size', low=10, high=50, q=10),
+    'init_lr': hp.loguniform('init_lr', low=np.log(1e-7), high=np.log(1e-4)),
     'max_lr': hp.loguniform('max_lr', low=np.log(1e-7), high=np.log(1e-3)),
     'final_lr': hp.loguniform('final_lr', low=np.log(1e-8), high=np.log(1e-4)),
 }
@@ -80,7 +80,7 @@ def hyperopt(args: HyperoptArgs) -> None:
         for key, value in hyperparams.items():
             setattr(hyper_args, key, value)
 
-        hyper_args.ffn_hidden_size = hyper_args.hidden_size
+        # hyper_args.ffn_hidden_size = hyper_args.hidden_size
 
         # Cross validate
         mean_score, std_score = cross_validate(args=hyper_args, train_func=run_training)
