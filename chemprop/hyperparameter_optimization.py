@@ -27,7 +27,7 @@ SPACE = {
     'warmup_epochs': hp.quniform('warmup_epochs', low=0, high=6, q=1),
     'batch_size': hp.quniform('batch_size', low=10, high=50, q=10),
     'init_lr': hp.loguniform('init_lr', low=np.log(1e-7), high=np.log(1e-4)),
-    'max_lr': hp.loguniform('max_lr', low=np.log(1e-7), high=np.log(1e-3)),
+    # 'max_lr': hp.loguniform('max_lr', low=np.log(1e-6), high=np.log(1e-3)),
     'final_lr': hp.loguniform('final_lr', low=np.log(1e-8), high=np.log(1e-4)),
 }
 INT_KEYS = ['hidden_size', 'depth', 'ffn_num_layers', 'ffn_hidden_size', 'warmup_epochs', 'batch_size']
@@ -81,6 +81,7 @@ def hyperopt(args: HyperoptArgs) -> None:
             setattr(hyper_args, key, value)
 
         # hyper_args.ffn_hidden_size = hyper_args.hidden_size
+        hyper_args.max_lr = hyper_args.init_lr * 10  # manually force max_lr to be 10 * init_lr
 
         # Cross validate
         mean_score, std_score = cross_validate(args=hyper_args, train_func=run_training)
