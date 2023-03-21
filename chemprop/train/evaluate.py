@@ -82,8 +82,8 @@ def evaluate_predictions(preds: List[List[float]],
                     info('Warning: Found a task with predictions all 0s or all 1s')
 
                 if nan:
-                    # for metric in metrics:
-                        # results[metric].append(float('nan'))
+                    for metric in metrics:
+                        results[metric].append(0.1)  # append some arbitrary number to avoid error
                     continue
 
             if len(valid_targets[i]) == 0:
