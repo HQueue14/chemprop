@@ -1,6 +1,6 @@
 ![ChemProp Logo](docs/source/_static/images/chemprop_logo.svg)
 
-# ML model for critical property prediction
+# ML model for critical property and acentric factor prediction
 
 This repository contains the sample scripts for the ML models for critical property and acentric factor predictions. 
 The sample files are located under `chemprop/sample_scripts_for_crit_prop/`. Follow the instructions below to run the sample files.
@@ -30,7 +30,7 @@ Run the `0_generate_Abraham_features_using_env_solprop.ipynb` script to generate
    - If you are unable to install `env_solprop`, you can alternatively obtain the Abraham parameters using the web-based tool
     at https://rmg.mit.edu/database/solvation/soluteSearch/. Make sure you format the result csv file to match the format of the 
    sample csv file at `chemprop/sample_scripts_for_crit_prop/Abraham_features.csv`
-3. Download the `CritProp_ML_model_files_with_abraham_feat.zip` file from https://zenodo.org/record/7804143, unzip it, and move it under `chemprop/crit_prop_model_files/`
+3. Download the `CritProp_ML_model_files_with_abraham_feat.zip` file from https://zenodo.org/record/8072892, unzip it, and move it under `chemprop/crit_prop_model_files/`
 4. Follow the installation guide [Installation](#installation) to install Chemprop.
 5. Activate Chemprop environment, and run the sample file at `chemprop/sample_scripts_for_crit_prop/1-1_predict_crtitical_properties_using_ML_with_Abraham_features.ipynb`.
 You should get the critical property predictions if the script runs successfully.
@@ -39,7 +39,7 @@ You should get the critical property predictions if the script runs successfully
 
 This model gives the second best performance, but it does not require additional steps.
 
-1. Download the `CritProp_ML_model_files_without_additional_feat.zip` file from https://zenodo.org/record/7804143, unzip it, and move it under `chemprop/crit_prop_model_files/`
+1. Download the `CritProp_ML_model_files_without_additional_feat.zip` file from https://zenodo.org/record/8072892, unzip it, and move it under `chemprop/crit_prop_model_files/`
 2. Follow the installation guide [Installation](#installation) to install Chemprop.
 3. Activate Chemprop environment, and run the sample file at `chemprop/sample_scripts_for_crit_prop/1-2_predict_crtitical_properties_using_ML_without_additional_features.ipynb`.
 You should get the critical property predictions if the script runs successfully.
