@@ -1,0 +1,42 @@
+Fold 0
+Fold 0
+Model 0 best validation rmse = 1.158165 on epoch 9
+Model 0 test rmse = 1.282679
+Ensemble test rmse = 1.282679
+1-fold cross validation
+	Seed 0 ==> test rmse = 1.282679
+Overall test rmse = 1.282679 +/- 0.000000
+Elapsed time = 0:00:57
+Fold 0
+Model 0 best validation rmse = 0.434760 on epoch 9
+Warning: Pretrained parameter "encoder.encoder.cached_zero_vector" of shape torch.Size([900]) does not match corresponding model parameter of shape torch.Size([400]).
+Warning: Pretrained parameter "encoder.encoder.W_i.weight" of shape torch.Size([900, 193]) does not match corresponding model parameter of shape torch.Size([400, 193]).
+Warning: Pretrained parameter "encoder.encoder.W_h.weight" of shape torch.Size([900, 900]) does not match corresponding model parameter of shape torch.Size([400, 400]).
+Warning: Pretrained parameter "encoder.encoder.W_o.weight" of shape torch.Size([900, 1065]) does not match corresponding model parameter of shape torch.Size([400, 565]).
+Warning: Pretrained parameter "encoder.encoder.W_o.bias" of shape torch.Size([900]) does not match corresponding model parameter of shape torch.Size([400]).
+Warning: Pretrained parameter "encoder.encoder_solvent.cached_zero_vector" of shape torch.Size([200]) does not match corresponding model parameter of shape torch.Size([300]).
+Warning: Pretrained parameter "encoder.encoder_solvent.W_i.weight" of shape torch.Size([200, 147]) does not match corresponding model parameter of shape torch.Size([300, 147]).
+Warning: Pretrained parameter "encoder.encoder_solvent.W_h.weight" of shape torch.Size([200, 200]) does not match corresponding model parameter of shape torch.Size([300, 300]).
+Warning: Pretrained parameter "encoder.encoder_solvent.W_o.weight" of shape torch.Size([200, 333]) does not match corresponding model parameter of shape torch.Size([300, 433]).
+Warning: Pretrained parameter "encoder.encoder_solvent.W_o.bias" of shape torch.Size([200]) does not match corresponding model parameter of shape torch.Size([300]).
+Warning: Pretrained parameter "readout.1.weight" of shape torch.Size([400, 1100]) does not match corresponding model parameter of shape torch.Size([900, 700]).
+Warning: Pretrained parameter "readout.1.bias" of shape torch.Size([400]) does not match corresponding model parameter of shape torch.Size([900]).
+Warning: Pretrained parameter "readout.4.weight" of shape torch.Size([400, 400]) does not match corresponding model parameter of shape torch.Size([1, 900]).
+Warning: Pretrained parameter "readout.4.bias" of shape torch.Size([400]) does not match corresponding model parameter of shape torch.Size([1]).
+Warning: Pretrained parameter "readout.7.weight" cannot be found in model parameters.
+Warning: Pretrained parameter "readout.7.bias" cannot be found in model parameters.
+Warning: Pretrained parameter "readout.10.weight" cannot be found in model parameters.
+Warning: Pretrained parameter "readout.10.bias" cannot be found in model parameters.
+Warning: Pretrained parameter "readout.13.weight" cannot be found in model parameters.
+Warning: Pretrained parameter "readout.13.bias" cannot be found in model parameters.
+Warning: Pretrained parameter "readout.16.weight" cannot be found in model parameters.
+Warning: Pretrained parameter "readout.16.bias" cannot be found in model parameters.
+Model 0 test rmse = 1.863666
+Ensemble test rmse = 1.863666
+1-fold cross validation
+	Seed 0 ==> test rmse = 1.863666
+Overall test rmse = 1.863666 +/- 0.000000
+Elapsed time = 0:02:09
+Fold 0
+Fold 0
+Fold 0
